@@ -1,6 +1,9 @@
 export const scaleModes = ["contain", "cover", "stretch"] as const;
 export type ScaleMode = (typeof scaleModes)[number];
 
+export const bandwidthModes = ["highest", "lowest"] as const;
+export type BandwidthMode = (typeof bandwidthModes)[number];
+
 export const logLevels = ["trace", "debug", "info", "warn", "error"] as const;
 export type LogLevel = (typeof logLevels)[number];
 
@@ -13,6 +16,7 @@ export interface AppConfig {
     sourceName: string;
     audioEnabled: boolean;
     scaleMode: ScaleMode;
+    bandwidthMode: BandwidthMode;
     autoStart: boolean;
     reconnect: {
       enabled: boolean;

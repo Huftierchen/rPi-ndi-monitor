@@ -1,4 +1,5 @@
 import {
+  bandwidthModes,
   logLevels,
   scaleModes,
   type AppConfig,
@@ -24,6 +25,17 @@ function scaleModeLabel(mode: AppConfig["receiver"]["scaleMode"]): string {
       return "Cover: fill the screen and allow cropping";
     case "stretch":
       return "Stretch: fill the screen without preserving aspect ratio";
+    default:
+      return mode;
+  }
+}
+
+function bandwidthModeLabel(mode: AppConfig["receiver"]["bandwidthMode"]): string {
+  switch (mode) {
+    case "highest":
+      return "Highest: full-resolution NDI stream";
+    case "lowest":
+      return "Lowest: reduced bandwidth and resolution";
     default:
       return mode;
   }
@@ -144,6 +156,18 @@ function settingsForm(config: AppConfig): string {
                   .join("")}
               </select>
             </label>
+            <label><span>NDI bandwidth mode</span>
+              <select name="receiver.bandwidthMode">
+                ${bandwidthModes
+                  .map(
+                    (mode) =>
+                      `<option value="${mode}" ${config.receiver.bandwidthMode === mode ? "selected" : ""}>${bandwidthModeLabel(
+                        mode
+                      )}</option>`
+                  )
+                  .join("")}
+              </select>
+            </label>
             <label><span>Audio over HDMI</span><input type="checkbox" name="receiver.audioEnabled" ${
               config.receiver.audioEnabled ? "checked" : ""
             } /></label>
@@ -229,7 +253,7 @@ function settingsForm(config: AppConfig): string {
       <div class="actions">
         <button type="submit">Save settings</button>
       </div>
-      <p class="hint">Typical production defaults: fixed source name, auto-start enabled, reconnect enabled, contain or cover scale mode, audio only when the display path is verified.</p>
+      <p class="hint">On Raspberry Pi 4, the easiest performance wins are usually disabling HDMI audio and switching NDI bandwidth mode to lowest for heavy Full-HD senders.</p>
     </form>
   </section>`;
 }
@@ -276,6 +300,10 @@ export function renderDashboardPage(status: ReceiverRuntimeStatus, config: AppCo
           <div class="info-card">
             <span class="label">Scale mode</span>
             <strong>${e(config.receiver.scaleMode)}</strong>
+          </div>
+          <div class="info-card">
+            <span class="label">NDI bandwidth</span>
+            <strong>${e(config.receiver.bandwidthMode)}</strong>
           </div>
           <div class="info-card">
             <span class="label">Audio over HDMI</span>
@@ -365,6 +393,10 @@ export function renderAboutPage(config: AppConfig): string {
           <div class="info-card">
             <span class="label">Configured source</span>
             <strong>${e(config.receiver.sourceName || "not configured")}</strong>
+          </div>
+          <div class="info-card">
+            <span class="label">NDI bandwidth</span>
+            <strong>${e(config.receiver.bandwidthMode)}</strong>
           </div>
           <div class="info-card">
             <span class="label">Video path</span>

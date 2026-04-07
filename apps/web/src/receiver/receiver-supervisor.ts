@@ -312,6 +312,8 @@ export class ReceiverSupervisor {
       config.logging.level,
       "--scale-mode",
       config.receiver.scaleMode,
+      "--bandwidth-mode",
+      config.receiver.bandwidthMode,
       "--status-file",
       this.paths.receiverStatusFile,
       "--fullscreen",

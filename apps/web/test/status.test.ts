@@ -10,6 +10,7 @@ const config: AppConfig = {
     sourceName: "Studio",
     audioEnabled: true,
     scaleMode: "contain",
+    bandwidthMode: "highest",
     autoStart: false,
     reconnect: {
       enabled: true,

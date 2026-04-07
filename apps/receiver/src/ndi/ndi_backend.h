@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -20,7 +21,28 @@ struct VideoFrame {
   int width = 0;
   int height = 0;
   double fps = 0.0;
-  std::vector<std::uint8_t> rgba;
+  int stride_bytes = 0;
+  const std::uint8_t* pixels = nullptr;
+  std::vector<std::uint8_t> owned_rgba;
+  std::function<void()> release;
+
+  VideoFrame() = default;
+  VideoFrame(const VideoFrame&) = delete;
+  VideoFrame& operator=(const VideoFrame&) = delete;
+  VideoFrame(VideoFrame&&) = default;
+  VideoFrame& operator=(VideoFrame&&) = default;
+  ~VideoFrame() {
+    if (release) {
+      release();
+    }
+  }
+
+  const std::uint8_t* Data() const {
+    if (pixels != nullptr) {
+      return pixels;
+    }
+    return owned_rgba.empty() ? nullptr : owned_rgba.data();
+  }
 };
 
 enum class PollResultKind { kFrame, kTimeout, kDisconnected, kFatal };

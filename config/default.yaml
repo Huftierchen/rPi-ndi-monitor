@@ -6,6 +6,7 @@ receiver:
   sourceName: ""
   audioEnabled: false
   scaleMode: contain
+  bandwidthMode: highest
   autoStart: false
   reconnect:
     enabled: true

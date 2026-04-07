@@ -1,5 +1,6 @@
 #pragma once
 
+#include <functional>
 #include <string>
 
 namespace ndi_receiver {
@@ -16,6 +17,7 @@ enum class ExitCode {
 
 enum class LogLevel { kTrace, kDebug, kInfo, kWarn, kError };
 enum class ScaleMode { kContain, kCover, kStretch };
+enum class BandwidthMode { kHighest, kLowest };
 enum class CommandKind { kRun, kDiscover, kHelp };
 
 struct RunOptions {
@@ -23,6 +25,7 @@ struct RunOptions {
   bool audio_enabled = false;
   LogLevel log_level = LogLevel::kInfo;
   ScaleMode scale_mode = ScaleMode::kContain;
+  BandwidthMode bandwidth_mode = BandwidthMode::kHighest;
   std::string status_file;
   bool json_logs = false;
   bool fullscreen = true;
@@ -49,5 +52,6 @@ CliOptions parse_cli(int argc, char** argv);
 std::string render_help();
 std::string to_string(LogLevel level);
 std::string to_string(ScaleMode mode);
+std::string to_string(BandwidthMode mode);
 
 }  // namespace ndi_receiver
