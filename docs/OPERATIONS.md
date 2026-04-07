@@ -7,47 +7,190 @@
 - Web-Logs: `/var/log/ndi-receiver/web.log`
 - Receiver-Logs: `/var/log/ndi-receiver/receiver.log`
 
-## Services
+## Wichtige Services
 
 ```bash
 sudo systemctl status ndi-web.service
-sudo systemctl restart ndi-web.service
-sudo journalctl -u ndi-web.service -f
+sudo systemctl status ndi-standby.service
+sudo systemctl status getty@tty1.service
 ```
+
+Was sie tun:
+
+- `ndi-web.service`: Web-Control-Plane, API, UI, Supervisor fuer den nativen Receiver
+- `ndi-standby.service`: schreibt den Idle-/Standby-Text auf `tty1`
+- `getty@tty1.service`: sollte im Appliance-Betrieb deaktiviert sein
 
 ## Typischer Betriebsablauf
 
-1. Web-Dienst startet
-2. Konfiguration wird validiert und geladen
-3. API/UI stehen bereit
-4. Bei `autoStart` oder manuellem Start startet der Receiver-Child-Prozess
-5. Receiver schreibt Statusdatei und Logs
-6. Bei Disconnect oder Crash greift die Restart-/Reconnect-Logik
+1. Pi bootet in `multi-user.target`
+2. `ndi-standby.service` schreibt den Standby-Screen auf HDMI
+3. `ndi-web.service` startet die Web-Control-Plane
+4. Konfiguration wird geladen und validiert
+5. Discovery und UI stehen bereit
+6. bei `autoStart` oder manuellem Start wird der Receiver als Child-Prozess gestartet
+7. der Receiver schreibt Statusdatei und strukturierte Logs
+8. bei Disconnect oder Crash greifen Reconnect und Restart
+
+## Receiver starten und stoppen
+
+Ueber die Web-UI:
+
+- Dashboard: `Start receiver`, `Stop`, `Restart`, `Reconnect`
+- Sources: `Use and start`
+
+Ueber die API:
+
+```bash
+curl -X POST http://127.0.0.1:8080/api/control/start
+curl -X POST http://127.0.0.1:8080/api/control/stop
+curl -X POST http://127.0.0.1:8080/api/control/restart
+curl -X POST http://127.0.0.1:8080/api/control/reconnect
+```
 
 ## Discovery
 
-Discovery laeuft als separater kurzer nativer Prozess ueber `receiver discover --json`. Dadurch bleibt eine laufende Wiedergabe unberuehrt.
+Discovery laeuft als separater kurzer nativer Prozess. Eine laufende Wiedergabe wird dadurch nicht unterbrochen.
 
-## Graceful Shutdown
+Web-UI:
 
-Bei `SIGTERM`:
+- `/sources` startet Discovery beim Oeffnen automatisch
+- manueller Refresh ist jederzeit moeglich
 
-- Web-Dienst stoppt geordnet
-- Child-Prozess erhaelt `SIGTERM`
-- nach Timeout folgt `SIGKILL`
-- `systemd` bekommt einen sauberen Exit
+CLI:
 
-## Logauswertung
+```bash
+/opt/ndi-monitor/apps/receiver/build/ndi-receiver discover --json --timeout-ms 4000
+```
 
-- Journal fuer Service-Probleme
-- NDJSON-Dateien fuer UI-Download und einfache lokale Analyse
+## Status beobachten
 
-Beispiele:
+```bash
+curl http://127.0.0.1:8080/api/status
+cat /var/lib/ndi-receiver/receiver-status.json
+```
+
+Wichtige Statusfelder:
+
+- `lifecycle`
+- `connectionState`
+- `sourceName`
+- `videoActive`
+- `audioActive`
+- `resolution`
+- `fps`
+- `lastError`
+- `restartCount`
+- `desiredRunning`
+
+## Logs
+
+### Datei-Logs
 
 ```bash
 tail -f /var/log/ndi-receiver/web.log
 tail -f /var/log/ndi-receiver/receiver.log
 ```
+
+### Journal
+
+```bash
+sudo journalctl -u ndi-web.service -f
+sudo journalctl -u ndi-web.service -b
+sudo journalctl -u ndi-standby.service -b
+```
+
+### Web-UI
+
+- `/logs`
+- Download der Logdateien ueber die entsprechenden Buttons
+
+## Konfiguration aendern
+
+Persistente Konfigurationsdatei:
+
+- `/etc/ndi-receiver/config.yaml`
+
+Aenderungen koennen erfolgen:
+
+- ueber `/settings`
+- ueber `/sources`
+- per API
+- im Notfall direkt per SSH
+
+Nach Speichern ueber die Web-UI wird:
+
+- die Konfiguration validiert
+- bei laufendem Receiver ein kontrollierter Neustart ausgeloest
+
+## Typische Einstellungen
+
+### Sinnvoll fuer Produktion
+
+- `receiver.sourceName`: fester NDI-Sender
+- `receiver.autoStart: true`
+- `receiver.reconnect.enabled: true`
+- `receiver.scaleMode: contain` oder `cover`
+- `logging.level: info`
+- `display.fullscreen: true`
+
+### Wenn Audio Probleme macht
+
+- `receiver.audioEnabled: false`
+
+### Wenn eine Quelle langsam wieder auftaucht
+
+- `receiver.reconnect.initialDelayMs` und `maxDelayMs` erhoehen
+
+## Reboot nach Erstinstallation
+
+Ein Reboot ist nach der ersten Installation empfohlen, weil:
+
+- `/boot/cmdline.txt` angepasst wird
+- `console=tty1` entfernt wird
+- die HDMI-Boot-Konsole ruhig werden soll
+
+## Wenn der Receiver laeuft, aber kein Bild sichtbar ist
+
+Pruefen:
+
+```bash
+curl http://127.0.0.1:8080/api/status
+cat /var/lib/ndi-receiver/receiver-status.json
+tail -f /var/log/ndi-receiver/receiver.log
+sudo ls -l /proc/$(pgrep -f ndi-receiver | head -n1)/fd
+```
+
+Worauf achten:
+
+- `connectionState` sollte `connected` sein
+- `videoActive` sollte `true` sein
+- `resolution` und `fps` sollten sinnvoll gesetzt sein
+- offene Handles auf `/dev/dri/card*` und `/dev/dri/renderD128`
+
+## Wenn auf HDMI der Login-Prompt wieder auftaucht
+
+Pruefen:
+
+```bash
+sudo systemctl status getty@tty1.service ndi-standby.service
+cat /boot/cmdline.txt
+```
+
+Erwartung:
+
+- `getty@tty1.service`: `inactive`
+- `ndi-standby.service`: `active (exited)`
+- `/boot/cmdline.txt` ohne `console=tty1`
+
+## Graceful Shutdown
+
+Bei `SIGTERM`:
+
+- Web-Dienst schreibt Shutdown-Log
+- Child-Prozess bekommt `SIGTERM`
+- nach Timeout folgt `SIGKILL`
+- `systemd` sieht einen sauberen Dienst-Exit
 
 ## Update
 
@@ -60,6 +203,6 @@ sudo ./scripts/update.sh
 
 ## Offene Betriebsrisiken
 
-- Audio-Frames ueber das echte NDI-SDK muessen auf dem Zielgeraet mit HDMI-Audio getestet werden
-- SDL2/KMSDRM-Verhalten kann je nach Firmware- und Display-Kombination variieren
-- Der Stub-Backend-Pfad ist nur fuer lokale Entwicklung gedacht, nicht fuer Produktion
+- HDMI-Audio sollte auf dem finalen Zielsystem mit echtem Audio-Signal separat validiert werden
+- SDL2/KMSDRM kann je nach Display, Kabel, Adapter und Firmware variieren
+- fuer groessere Installationen waeren Logrotation und explizites Monitoring noch sinnvoll
