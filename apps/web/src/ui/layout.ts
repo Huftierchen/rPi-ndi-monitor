@@ -7,6 +7,13 @@ function escapeHtml(value: string): string {
     .replaceAll("'", "&#39;");
 }
 
+function serializeInitialData(value: Record<string, unknown> | undefined): string {
+  return JSON.stringify(value ?? {})
+    .replaceAll("<", "\\u003c")
+    .replaceAll(">", "\\u003e")
+    .replaceAll("&", "\\u0026");
+}
+
 export function renderPage(
   title: string,
   activePath: string,
@@ -50,9 +57,7 @@ export function renderPage(
         ${content}
       </main>
     </div>
-    <script id="initial-data" type="application/json">${escapeHtml(
-      JSON.stringify(initialData ?? {})
-    )}</script>
+    <script id="initial-data" type="application/json">${serializeInitialData(initialData)}</script>
     <script src="/assets/app.js" defer></script>
   </body>
 </html>`;
