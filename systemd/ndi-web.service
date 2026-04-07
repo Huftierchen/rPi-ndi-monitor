@@ -12,7 +12,9 @@ WorkingDirectory=/opt/ndi-monitor
 Environment=NODE_ENV=production
 Environment=NDI_MONITOR_CONFIG_PATH=/etc/ndi-receiver/config.yaml
 Environment=NDI_MONITOR_RUNTIME_ROOT=/var/lib/ndi-receiver
+Environment=NDI_MONITOR_LOG_DIR=/var/log/ndi-receiver
 Environment=NDI_MONITOR_RECEIVER_BINARY=/opt/ndi-monitor/apps/receiver/build/ndi-receiver
+Environment=XDG_RUNTIME_DIR=/run/ndi-monitor
 Environment=SDL_VIDEODRIVER=kmsdrm
 Environment=SDL_AUDIODRIVER=alsa
 Environment=LD_LIBRARY_PATH=/opt/ndi-monitor/lib

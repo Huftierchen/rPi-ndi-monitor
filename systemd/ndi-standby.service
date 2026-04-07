@@ -1,0 +1,13 @@
+[Unit]
+Description=NDI Monitor HDMI Standby Screen
+After=local-fs.target
+Before=ndi-web.service
+Conflicts=getty@tty1.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/ndi-monitor/scripts/standby-screen.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

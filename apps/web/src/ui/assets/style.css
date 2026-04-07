@@ -83,6 +83,12 @@ button:hover,
   transform: translateY(-1px);
 }
 
+button:disabled {
+  opacity: 0.65;
+  cursor: wait;
+  transform: none;
+}
+
 .secondary {
   background: var(--panel-alt);
 }
@@ -90,6 +96,42 @@ button:hover,
 .content {
   display: grid;
   gap: 1rem;
+}
+
+.hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 1.5rem;
+  align-items: center;
+  background:
+    linear-gradient(135deg, rgba(31, 111, 95, 0.09), rgba(255, 255, 255, 0.96)),
+    var(--panel);
+}
+
+.hero h2 {
+  margin: 0.1rem 0 0.5rem;
+  font-size: clamp(1.5rem, 4vw, 2.25rem);
+}
+
+.hero-copy {
+  margin: 0;
+  max-width: 42rem;
+  color: var(--muted);
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--accent-strong);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.hero-actions {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 14rem;
 }
 
 .panel {
@@ -117,6 +159,7 @@ button:hover,
   background: var(--panel-alt);
   border-radius: 0.9rem;
   padding: 0.85rem;
+  min-height: 6rem;
 }
 
 .card .label {
@@ -181,6 +224,54 @@ input[type="checkbox"] {
   text-align: left;
 }
 
+.source-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.source-option {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.9rem;
+  align-items: center;
+  padding: 0.95rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 0.9rem;
+  background: linear-gradient(180deg, #fff 0%, var(--panel-alt) 100%);
+  cursor: pointer;
+}
+
+.source-option:has(input:checked) {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(31, 111, 95, 0.12);
+}
+
+.source-copy {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.source-copy strong {
+  font-size: 1rem;
+}
+
+.source-copy small,
+.source-meta,
+.source-empty {
+  color: var(--muted);
+}
+
+.source-meta {
+  font-size: 0.92rem;
+}
+
+.source-empty {
+  padding: 1rem;
+  border: 1px dashed var(--border);
+  border-radius: 0.9rem;
+  background: var(--panel-alt);
+}
+
 .log-output {
   min-height: 18rem;
   max-height: 28rem;
@@ -213,7 +304,8 @@ input[type="checkbox"] {
 
 @media (max-width: 720px) {
   .topbar,
-  .panel-row {
+  .panel-row,
+  .hero {
     flex-direction: column;
     align-items: stretch;
   }
@@ -230,5 +322,13 @@ input[type="checkbox"] {
   button,
   .button-link {
     text-align: center;
+  }
+
+  .source-option {
+    grid-template-columns: auto 1fr;
+  }
+
+  .source-meta {
+    grid-column: 2;
   }
 }

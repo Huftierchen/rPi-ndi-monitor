@@ -5,6 +5,7 @@ PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 INSTALL_ROOT="${INSTALL_ROOT:-/opt/ndi-monitor}"
 SYSTEM_USER="${SYSTEM_USER:-ndi-monitor}"
 ALLOW_STUB_BACKEND="${ALLOW_STUB_BACKEND:-0}"
+BOOT_CMDLINE="${BOOT_CMDLINE:-/boot/cmdline.txt}"
 
 require_command() {
   command -v "$1" >/dev/null 2>&1 || {
@@ -105,10 +106,39 @@ install_files() {
   fi
 
   install -m 0644 "${PROJECT_ROOT}/systemd/ndi-web.service" /etc/systemd/system/ndi-web.service
+  install -m 0644 "${PROJECT_ROOT}/systemd/ndi-standby.service" /etc/systemd/system/ndi-standby.service
   install -m 0644 "${PROJECT_ROOT}/systemd/ndi-monitor.tmpfiles.conf" /etc/tmpfiles.d/ndi-monitor.conf
 
   systemd-tmpfiles --create /etc/tmpfiles.d/ndi-monitor.conf
   chown -R "${SYSTEM_USER}:${SYSTEM_USER}" /etc/ndi-receiver /var/lib/ndi-receiver /var/log/ndi-receiver
+}
+
+configure_appliance_console() {
+  if [[ -f "${BOOT_CMDLINE}" ]]; then
+    local current_cmdline new_cmdline token
+    current_cmdline="$(tr '\n' ' ' < "${BOOT_CMDLINE}")"
+    new_cmdline=""
+    for token in ${current_cmdline}; do
+      if [[ "${token}" == "console=tty1" ]]; then
+        continue
+      fi
+      new_cmdline+="${token} "
+    done
+
+    for token in quiet loglevel=3 vt.global_cursor_default=0; do
+      if [[ " ${new_cmdline} " != *" ${token} "* ]]; then
+        new_cmdline+="${token} "
+      fi
+    done
+
+    if [[ ! -f "${BOOT_CMDLINE}.ndi-monitor.bak" ]]; then
+      cp "${BOOT_CMDLINE}" "${BOOT_CMDLINE}.ndi-monitor.bak"
+    fi
+    printf '%s\n' "${new_cmdline% }" > "${BOOT_CMDLINE}"
+  fi
+
+  systemctl disable --now getty@tty1.service >/dev/null 2>&1 || true
+  systemctl enable ndi-standby.service >/dev/null
 }
 
 install_runtime_dependencies() {
@@ -118,6 +148,7 @@ install_runtime_dependencies() {
 
 enable_service() {
   systemctl daemon-reload
+  systemctl restart ndi-standby.service
   systemctl enable ndi-web.service
   systemctl restart ndi-web.service
 }
@@ -129,6 +160,7 @@ main() {
   build_project
   install_files
   install_runtime_dependencies
+  configure_appliance_console
   enable_service
   echo "ndi-monitor installed at ${INSTALL_ROOT}"
 }

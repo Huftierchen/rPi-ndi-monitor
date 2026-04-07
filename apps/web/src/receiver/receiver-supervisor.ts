@@ -72,6 +72,18 @@ export class ReceiverSupervisor {
     return this.discoverySnapshot;
   }
 
+  public syncConfig(config: AppConfig): void {
+    if (this.child || this.status.desiredRunning) {
+      return;
+    }
+
+    this.applyStatus({
+      sourceName: config.receiver.sourceName || null,
+      audioEnabled: config.receiver.audioEnabled,
+      updatedAt: new Date().toISOString()
+    });
+  }
+
   public async start(): Promise<ReceiverRuntimeStatus> {
     return this.runExclusive(() => this.startInternal());
   }
@@ -429,6 +441,7 @@ export class ReceiverSupervisor {
       audioActive: false,
       resolution: unexpected ? this.status.resolution : null,
       fps: unexpected ? this.status.fps : null,
+      startedAt: unexpected ? this.status.startedAt : null,
       uptimeSeconds: null,
       lastExitCode: code,
       lastExitSignal: signal,
