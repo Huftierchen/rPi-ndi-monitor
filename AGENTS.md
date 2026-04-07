@@ -1,486 +1,486 @@
-Du sollst ein vollständiges, produktionsnahes Projekt für einen Raspberry Pi 5 bauen.
+# Project Brief
 
-Ziel:
-Ein Raspberry Pi 5 mit Raspberry Pi OS Lite (console-only, kein Desktop) soll als eigenständiger NDI-Empfänger dienen. Das Gerät soll einen auswählbaren NDI-Stream fullscreen auf dem per HDMI angeschlossenen Display ausgeben. Die Konfiguration und Fernbedienung soll über eine lokale Node.js-Weboberfläche erfolgen. Das eigentliche NDI-Empfangen und Rendern soll NICHT in Node.js passieren, sondern in einer nativen Komponente.
+Build a complete, production-oriented Raspberry Pi NDI receiver appliance.
 
-Wichtige Architekturentscheidung:
-- Node.js/TypeScript ist nur für:
-  - Web-UI
-  - REST-API
-  - Konfiguration
-  - Status
-  - Prozessverwaltung / Supervision
-  - Reconnect-/Restart-Logik
-  - Log-Anzeige
-- Native Receiver-App ist für:
-  - NDI Source Discovery
-  - Verbinden mit einer Quelle
-  - Empfang von Video
-  - optional Audio-Ausgabe über HDMI
-  - fullscreen Rendering direkt auf HDMI
-  - kein X11, kein Wayland, kein Desktop
-  - direkte Ausgabe über Linux DRM/KMS, bevorzugt via SDL2 mit KMSDRM-Backend oder gleichwertigem robusten Ansatz
+## Goal
 
-Rahmenbedingungen:
-- Zielplattform: Raspberry Pi 5
+A Raspberry Pi running Raspberry Pi OS Lite without a desktop should act as a standalone NDI receiver. The device should render one selectable NDI stream fullscreen on the HDMI-attached display. Configuration and remote control should happen through a local Node.js web interface. NDI receive and rendering must not happen in Node.js; they must be handled by a native component.
+
+## Core Architecture Decision
+
+Node.js / TypeScript is responsible only for:
+
+- Web UI
+- REST API
+- configuration
+- status
+- process supervision
+- reconnect / restart logic
+- log viewing
+
+The native receiver is responsible for:
+
+- NDI source discovery
+- connecting to a source
+- receiving video
+- optional HDMI audio output
+- fullscreen HDMI rendering
+- no X11, no Wayland, no desktop
+- direct Linux DRM/KMS output, preferably through SDL2 KMSDRM or an equivalent robust approach
+
+## Constraints
+
+- target platform: Raspberry Pi 5
 - OS: Raspberry Pi OS Lite / Bookworm
-- Architektur: ARM64
-- Deployment: systemd Services
-- Bootverhalten:
-  - Gerät bootet in Multi-User-Mode
-  - Web-UI und Receiver-Manager starten automatisch
-  - nach Stromverlust soll das System automatisch wieder hochkommen
-- Ausgabe:
-  - fullscreen auf HDMI
-  - kein Mauszeiger
-  - kein sichtbarer Desktop
-  - möglichst appliance-artiges Verhalten
-- Bedienung:
-  - vom Netzwerk aus per Browser
-  - einfache Fernkonfiguration
-  - NDI-Quellen anzeigen
-  - Quelle auswählen
-  - Start/Stop/Reconnect
-  - Status sehen
-  - Logs sehen
-- Robustheit:
-  - wenn Quelle verschwindet: automatische Retry-Strategie
-  - wenn nativer Receiver abstürzt: Node-Supervisor startet ihn neu
-  - saubere Fehlerbehandlung
-  - systemd-Units mit Restart
-- Sicherheit:
-  - UI standardmäßig nur im LAN gedacht
-  - aber bereits so strukturieren, dass optional Auth später ergänzt werden kann
-- Audio:
-  - optional aktivierbar/deaktivierbar
-  - wenn aktiviert: Audio über HDMI ausgeben
-- Performance:
-  - Ziel primär 1080p stabil
-  - nicht auf Multi-Stream auslegen
-  - zunächst ein Stream gleichzeitig
+- architecture: ARM64
+- deployment: `systemd`
+- boot behavior:
+  - boot into multi-user mode
+  - web UI and receiver manager start automatically
+  - device must recover automatically after power loss
+- output:
+  - fullscreen on HDMI
+  - no mouse cursor
+  - no visible desktop
+  - appliance-like behavior
+- operation:
+  - remote browser access over the network
+  - simple remote configuration
+  - list NDI sources
+  - select a source
+  - start / stop / reconnect
+  - inspect status
+  - inspect logs
+- robustness:
+  - automatic retry when a source disappears
+  - automatic restart when the native receiver crashes
+  - clean error handling
+  - `systemd` restart policies
+- security:
+  - UI is LAN-only by default
+  - structure the code so authentication can be added later
+- audio:
+  - optional on/off
+  - HDMI output when enabled
+- performance:
+  - target stable 1080p first
+  - single-stream only
 - UX:
-  - Headless-Appliance
-  - einfache Konfigurationsdatei + Web-UI
-  - möglichst wenig bewegliche Teile
+  - headless appliance
+  - simple config file plus Web UI
+  - minimal moving parts
 
-Technische Präferenz:
-Bitte baue das Projekt als Monorepo mit zwei Hauptteilen:
+## Preferred Project Layout
 
-1. apps/web
-   - Node.js + TypeScript
-   - leichtgewichtiges Backend, z. B. Fastify oder Express
-   - einfache serverseitig gerenderte Seiten oder sehr schlanke Frontend-Lösung
-   - keine unnötig schwere Frontend-Maschinerie
-   - REST-API für alle Steuerfunktionen
-   - WebSocket oder SSE für Live-Status/Logs falls sinnvoll
+### `apps/web`
 
-2. apps/receiver
-   - native App in C++ (bevorzugt) oder Rust
-   - direkte NDI-SDK-Integration
-   - Ausgabe über SDL2 KMSDRM oder technisch gleichwertig
-   - CLI-Interface, damit Node sie gut steuern kann
-   - Ausgabe strukturierter Logs
-   - JSON-Statusdatei oder stdout-Statusereignisse
+- Node.js + TypeScript
+- lightweight backend such as Fastify or Express
+- server-rendered pages or a very small frontend layer
+- no heavy frontend framework unless clearly needed
+- REST API for all control actions
+- WebSocket or SSE for live status/logs if useful
 
-Bevorzugte Implementierungsdetails:
-- C++17 oder neuer für den Receiver
-- CMake für den nativen Build
-- Node.js 22+ für die Web-Komponente
-- TypeScript strikt typisiert
-- pnpm als Paketmanager
-- klare Trennung von Runtime-Config und Build-Config
-- keine Docker-Pflicht im Zielsystem
-- natives Bauen direkt auf dem Pi oder Cross-Compile vorbereitbar
+### `apps/receiver`
 
-Erwartete Projektstruktur:
-- README.md auf Root-Ebene
-- docs/ARCHITECTURE.md
-- docs/DEPLOYMENT_PI5.md
-- docs/OPERATIONS.md
-- apps/web/...
-- apps/receiver/...
-- scripts/...
-- config/...
-- systemd/...
+- native app in C++ preferred, Rust acceptable
+- direct NDI SDK integration
+- output through SDL2 KMSDRM or technically equivalent path
+- CLI interface so Node can manage it cleanly
+- structured logs
+- JSON status file or stdout status events
 
-Das Projekt soll mindestens diese Features enthalten:
+## Preferred Implementation Choices
 
-======================================================================
-A) WEB-UI / NODE BACKEND
-======================================================================
+- C++17 or newer for the receiver
+- CMake for the native build
+- Node.js 22+
+- TypeScript strict mode
+- pnpm
+- clean separation between build-time and runtime config
+- no Docker requirement on the target
+- build directly on the Pi, with cross-compile friendliness where possible
 
-Die Web-App soll diese Funktionen haben:
+## Expected Repository Structure
+
+- `README.md`
+- `docs/ARCHITECTURE.md`
+- `docs/DEPLOYMENT_PI5.md`
+- `docs/OPERATIONS.md`
+- `apps/web/...`
+- `apps/receiver/...`
+- `scripts/...`
+- `config/...`
+- `systemd/...`
+
+## Required Feature Set
+
+### A) Web UI / Node Backend
+
+The web application should provide:
 
 1. Dashboard
-- aktueller Gerätestatus
-- Receiver läuft / läuft nicht
-- aktuell verbundene Quelle
-- Video-Status
-- Audio-Status
-- letzte Fehler
-- Uptime
-- aktuelle Auflösung/FPS falls verfügbar
+- current device status
+- receiver running / not running
+- currently connected source
+- video status
+- audio status
+- recent errors
+- uptime
+- current resolution / FPS when available
 
 2. NDI Source Discovery
-- Button: “Quellen suchen”
-- Liste gefundener NDI-Quellen
-- Quelle auswählbar
-- Liste regelmäßig aktualisierbar
-- optional Auto-Refresh
+- button: `Search sources`
+- list of discovered NDI sources
+- source selection
+- repeatable refresh
+- optional auto-refresh
 
-3. Steuerung
-- Start Receiver
-- Stop Receiver
-- Restart Receiver
-- Reconnect zur gleichen Quelle
-- Quelle wechseln
+3. Control
+- start receiver
+- stop receiver
+- restart receiver
+- reconnect current source
+- switch source
 
-4. Einstellungen
-- gewünschte NDI-Quelle
-- Audio an/aus
-- HDMI-/Display-Optionen
-- Retry-Intervalle
-- Logging-Level
-- Auto-Start aktiv/inaktiv
-- optional bevorzugter Anzeigename des Geräts
-- optional Vollbild-/Letterbox-/Scale-Modus
+4. Settings
+- desired NDI source
+- audio on/off
+- HDMI / display options
+- retry intervals
+- logging level
+- auto-start
+- optional preferred device name
+- optional fullscreen / letterbox / scale mode
 
 5. Logs
-- letzte Logzeilen des nativen Receivers
-- letzte Logzeilen des Web-Backends
-- Download einer Logdatei
+- recent native receiver log lines
+- recent web backend log lines
+- log file download
 
 6. API
-- saubere REST-Endpoints
-- JSON-Antworten
-- Healthcheck-Endpoint
-- Status-Endpoint
-- Discovery-Endpoint
-- Settings-Endpoint
-- Control-Endpoint
+- clean REST endpoints
+- JSON responses
+- healthcheck
+- status endpoint
+- discovery endpoint
+- settings endpoint
+- control endpoint
 
-7. Prozessaufsicht
-- Node startet/stoppt den nativen Receiver-Prozess
-- Node erkennt Exit-Codes
-- Node kann Receiver automatisch neu starten
-- Node persistiert Konfiguration in Datei
+7. Process Supervision
+- Node starts/stops the native receiver process
+- Node understands exit codes
+- Node can restart the receiver automatically
+- Node persists configuration to disk
 
-======================================================================
-B) NATIVER RECEIVER
-======================================================================
+### B) Native Receiver
 
-Der native Receiver soll:
+The native receiver should:
 
-1. NDI initialisieren
-- NDI Runtime / SDK einbinden
-- Discovery unterstützen
-- Verbinden zu bestimmter Quelle anhand Namen oder Identifier
+1. Initialize NDI
+- integrate the NDI runtime / SDK
+- support discovery
+- connect to a source by name or identifier
 
-2. Video empfangen
-- Frames lesen
-- Verbindungsausfälle erkennen
-- robustes Fehlerhandling
-- sinnvolle Timeouts
+2. Receive Video
+- read frames
+- detect disconnects
+- handle errors robustly
+- use sensible timeouts
 
-3. Rendern
-- direkte HDMI-Ausgabe fullscreen
-- kein Desktop erforderlich
-- bevorzugt SDL2 mit KMSDRM-Backend
-- sauberer Renderloop
-- möglichst wenig CPU-Overhead
-- optionale Skalierungsmodi:
+3. Render
+- direct fullscreen HDMI output
+- no desktop required
+- SDL2 KMSDRM preferred
+- clean render loop
+- low CPU overhead
+- scaling modes:
   - contain / letterbox
   - cover / crop
   - stretch
 
 4. Audio
-- optional über HDMI
-- bei deaktiviertem Audio trotzdem Video funktionsfähig
-- Audio-Fehler sollen nicht die ganze App crashen
+- optional HDMI output
+- video must still work when audio is disabled
+- audio errors must not crash the whole app
 
-5. CLI / Steuerbarkeit
-Der Receiver soll als eigenständiges CLI-Programm startbar sein, z. B.:
-  receiver \
-    --source "Mein NDI Sender" \
-    --audio enabled \
-    --log-level info \
-    --scale-mode contain \
-    --status-file /var/lib/ndi-receiver/status.json
+5. CLI
+
+Example shape:
+
+```bash
+receiver \
+  --source "My NDI Sender" \
+  --audio enabled \
+  --log-level info \
+  --scale-mode contain \
+  --status-file /var/lib/ndi-receiver/status.json
+```
 
 6. Logging
-- strukturierte Logs nach stdout/stderr
-- sinnvolle Kategorien:
-  - startup
-  - ndi
-  - video
-  - audio
-  - render
-  - reconnect
-  - error
-- optional JSON-Logs per Flag
+- structured stdout/stderr logs
+- useful categories such as startup, ndi, video, audio, render, reconnect, error
+- optional JSON logs via flag
 
 7. Status
-- entweder periodische JSON-Statusdatei schreiben
-- oder Status-Events auf stdout ausgeben
-- Node muss zuverlässig erkennen können:
-  - receiver startet
-  - Quelle gefunden/nicht gefunden
-  - verbunden
+- either periodic JSON status snapshots
+- or stdout status events
+- Node must reliably detect:
+  - receiver starting
+  - source found / not found
+  - connected
   - disconnected
   - reconnecting
   - fatal error
 
-======================================================================
-C) KONFIGURATION
-======================================================================
+### C) Configuration
 
-Bitte ein einfaches, robustes Config-Modell bauen.
+Use a simple, robust configuration model.
 
-Beispielhafte config.yaml oder config.json:
-- server:
-    host
-    port
-- receiver:
-    sourceName
-    audioEnabled
-    scaleMode
-    reconnect:
-      enabled
-      initialDelayMs
-      maxDelayMs
-      backoffMultiplier
-- logging:
-    level
-    maxFiles
-    maxSizeMb
-- display:
-    fullscreen
-    hdmiOutputHint
-- device:
-    name
+Example shape:
 
-Anforderungen:
-- Default-Konfiguration mitliefern
-- Änderungen aus der Web-UI persistieren
-- Config-Validierung
-- fehlerhafte Config darf nicht stillschweigend übernommen werden
+```yaml
+server:
+  host:
+  port:
+receiver:
+  sourceName:
+  audioEnabled:
+  scaleMode:
+  reconnect:
+    enabled:
+    initialDelayMs:
+    maxDelayMs:
+    backoffMultiplier:
+logging:
+  level:
+  maxFiles:
+  maxSizeMb:
+display:
+  fullscreen:
+  hdmiOutputHint:
+device:
+  name:
+```
 
-======================================================================
-D) SYSTEMD / LINUX-INTEGRATION
-======================================================================
+Requirements:
 
-Bitte systemd-Units erstellen:
+- ship defaults
+- persist Web UI changes
+- validate config
+- invalid config must never be accepted silently
 
-1. ndi-web.service
-- startet die Node-Web-App
-- startet nach network-online.target
-- restart on failure
+### D) `systemd` / Linux Integration
 
-2. optional:
-   entweder
-   - den Receiver separat als systemd-Service
-   oder
-   - Receiver nur vom Node-Backend als Child-Prozess verwalten
+Create:
 
-Bitte eine begründete Entscheidung treffen und im README erklären.
-Meine Tendenz:
-- Web-Service als Hauptdienst
-- Receiver als Child-Prozess vom Web-Service
-damit die Web-App immer der “single control plane” bleibt.
+1. `ndi-web.service`
+- starts the Node web app
+- starts after `network-online.target`
+- restarts on failure
 
-Zusätzlich:
-- tmpfiles.d oder sinnvolle Ordnerstruktur für Status/Logs
-- Beispielpfade:
-  - /etc/ndi-receiver/
-  - /var/lib/ndi-receiver/
-  - /var/log/ndi-receiver/
+2. Receiver service model
+- either a separate `systemd` receiver service
+- or receiver as a child process of the web service
 
-Bitte Deployment-Skripte liefern:
-- install.sh
-- uninstall.sh
-- update.sh
+Preferred choice:
 
-Diese Skripte sollen:
-- Abhängigkeiten prüfen
-- Dateien kopieren
-- systemd daemon-reload
-- Dienste aktivieren/starten
-- sinnvolle Rechte setzen
+- web service as the main service
+- receiver managed as a child process by the web backend
 
-======================================================================
-E) BUILD / DEPENDENCIES
-======================================================================
+Also provide:
 
-Bitte sauber dokumentieren:
-- welche apt-Pakete benötigt werden
-- welche Node-Version benötigt wird
-- welche nativen Build-Tools benötigt werden
-- wie das NDI SDK eingebunden wird
-- wie Lizenz-/Redistributionsfragen berücksichtigt werden müssen
+- tmpfiles.d or an equivalent runtime directory setup
+- example paths:
+  - `/etc/ndi-receiver/`
+  - `/var/lib/ndi-receiver/`
+  - `/var/log/ndi-receiver/`
 
-Bitte das Projekt so vorbereiten, dass das NDI SDK NICHT blind ins Repo committed wird, falls das unpassend ist.
-Stattdessen:
-- klarer Mechanismus, wo das SDK erwartet wird
-- z. B. third_party/ndi_sdk als lokaler Pfad
-- oder Umgebungsvariable NDI_SDK_DIR
-- Build soll verständliche Fehler werfen, wenn SDK fehlt
+Deployment scripts:
 
-Falls für SDL2 unter KMSDRM zusätzliche Linux-Rechte oder Gerätezugriffe wichtig sind, diese sauber dokumentieren.
+- `install.sh`
+- `update.sh`
+- `uninstall.sh`
 
-======================================================================
-F) BEDIENKONZEPT
-======================================================================
+These scripts should:
 
-Bitte die Web-UI simpel und funktional halten.
-Kein übertriebenes Design.
-Fokus:
-- auf einem Handy im LAN bedienbar
-- auf Desktop gut nutzbar
-- klare Statusanzeigen
-- klare Fehlermeldungen
-- minimalistisch
+- validate dependencies
+- copy files
+- run `systemctl daemon-reload`
+- enable and start services
+- set sensible permissions
 
-Wichtige Seiten:
-- /
-- /sources
-- /settings
-- /logs
-- /about
+### E) Build / Dependencies
 
-======================================================================
-G) QUALITÄTSANFORDERUNGEN
-======================================================================
+Document clearly:
 
-Bitte implementieren:
+- required apt packages
+- required Node version
+- required native build tools
+- how the NDI SDK is integrated
+- licensing / redistribution considerations
+
+The NDI SDK must not be committed blindly into the repository.
+
+Instead:
+
+- define a clear expected SDK path
+- for example `third_party/ndi_sdk` or `NDI_SDK_DIR`
+- emit clear build errors when the SDK is missing
+
+If SDL2 KMSDRM requires extra Linux permissions or device access, document that explicitly.
+
+### F) Operating Model
+
+The Web UI should stay simple and functional.
+
+Focus:
+
+- usable from a phone on the LAN
+- comfortable on desktop
+- clear status
+- clear errors
+- minimal design
+
+Important pages:
+
+- `/`
+- `/sources`
+- `/settings`
+- `/logs`
+- `/about`
+
+### G) Quality Requirements
+
+Implement:
+
 - TypeScript strict mode
-- Input-Validierung
-- brauchbare Fehlertexte
-- keine stillen catch-all-Blöcke
-- Exit-Codes dokumentieren
-- README vollständig
-- Architektur-Doku
-- Deploy-Doku für Raspberry Pi 5
-- Beispiel-Konfiguration
-- Beispiel-systemd-Units
-- Beispiel-Screenshots notfalls als Platzhalter-Beschreibung im README
-- Unit-Tests für Node-Konfig/Validierung/Service-Layer
-- wenigstens ein paar grundlegende Tests oder Testbarkeit für die native Komponente
+- input validation
+- useful error messages
+- no silent catch-all blocks
+- documented exit codes
+- complete README
+- architecture documentation
+- Raspberry Pi deployment documentation
+- example config
+- example `systemd` units
+- screenshot placeholders if real screenshots are not available yet
+- unit tests for Node config/validation/service layers
+- at least some native tests or testability hooks
 
-======================================================================
-H) WICHTIGE ENTSCHEIDUNGEN, DIE DU SELBST TREFFEN SOLLST
-======================================================================
+### H) Decisions to Make Explicitly
 
-Treffe eigenständig fundierte Entscheidungen für:
+Choose and document:
+
 - Fastify vs Express
 - SSE vs WebSocket
-- JSON vs YAML Config
-- Child-Prozess-Management
-- Logging-Library
-- wie Discovery aus Node ausgelöst wird:
-  - entweder direkt im nativen Tool als CLI-Unterbefehl
-  - oder über den laufenden Receiver
-Ich bevorzuge:
-- Discovery als nativer CLI-Unterbefehl oder separater kurzer nativer Run
-- Node parst die Ergebnisse
+- YAML vs JSON config
+- child-process management strategy
+- logging library
+- how discovery is triggered from Node
 
-Bitte dokumentiere jede größere Architekturentscheidung kurz in docs/ARCHITECTURE.md.
+Preferred:
 
-======================================================================
-I) WUNSCH FÜR DIE IMPLEMENTIERUNG
-======================================================================
+- discovery as a native CLI subcommand or a short separate native run
+- Node parses the JSON result
 
-Bitte möglichst ein vollständiges startbares Gerüst liefern und nicht nur Pseudocode.
-Ich möchte:
-- echten Code
-- echte Projektstruktur
-- echte systemd-Dateien
-- echte Config-Dateien
-- echte Build-Dateien
-- echte README
-- sinnvolle TODO-Kommentare nur dort, wo Integration ohne NDI SDK praktisch nicht vollständig demonstrierbar ist
+Document each major decision briefly in `docs/ARCHITECTURE.md`.
 
-Wo NDI-spezifische Details wegen lokalem SDK nicht vollständig kompilierbar sind:
-- bitte den Code trotzdem so weit wie möglich real implementieren
-- mit klar gekennzeichneten Stellen
-- keine Handwedelei
-- keine unnötigen Mock-Attrappen statt echter Struktur
+### I) Implementation Style
 
-======================================================================
-J) DELIVERABLES
-======================================================================
+Deliver a real, runnable skeleton, not pseudocode.
 
-Liefere am Ende:
-1. komplette Projektstruktur
-2. alle Dateien mit Inhalt
-3. README mit Build- und Deploy-Anleitung
-4. Schritt-für-Schritt Anleitung für Raspberry Pi 5
-5. Erklärung, wie man lokal testet
-6. Liste offener Punkte / Risiken
-7. klare Kommandos zum Build und Start
-8. Beispiel-systemd-Setup
-9. Beispielkonfiguration
-10. API-Dokumentation
+Expected:
 
-======================================================================
-K) TECHNISCHE HINWEISE, DIE DU BEACHTEN SOLLST
-======================================================================
+- real code
+- real project structure
+- real `systemd` files
+- real config files
+- real build files
+- real README
+- `TODO` only where real NDI SDK integration cannot be fully verified locally
 
-- Zielsystem ist Raspberry Pi OS Bookworm Lite, also ohne Desktop.
-- Die direkte Anzeige soll ohne X11/Wayland funktionieren.
-- Für Linux ist KMS/DRM der bevorzugte Ansatz.
-- Die Lösung soll nicht auf einen klassischen Desktop-Window-Manager angewiesen sein.
-- Das Projekt soll so aufgebaut sein, dass es als Appliance betrieben werden kann.
-- Node.js soll nicht selbst Videoframes rendern.
-- Receiver und Web-UI sollen klar getrennt sein.
-- Das native Teil muss robust mit Verbindungsabbrüchen umgehen.
-- Logging und Betriebsfähigkeit sind wichtiger als hübsche Extras.
+Where NDI integration cannot be fully tested without the local SDK:
 
-======================================================================
-L) ARBEITSWEISE
-======================================================================
+- still implement the real structure
+- mark the exact unverified areas clearly
+- avoid hand-wavy placeholder architecture
 
-Bitte arbeite in dieser Reihenfolge:
-1. Architektur festlegen und kurz dokumentieren
-2. Projektstruktur erzeugen
-3. Node-Web-App implementieren
-4. nativen Receiver-Rahmen implementieren
-5. Discovery-/Control-Schnittstellen definieren
-6. Config-/Logging-/Statusmodell implementieren
-7. systemd-/Deploy-Dateien anlegen
-8. README und Doku vervollständigen
-9. offene NDI-SDK-Integrationsstellen markieren
-10. abschließend ein realistisches Betriebs- und Risikokapitel schreiben
+### J) Final Deliverables
 
-Bitte sei konkret, produktionsnah und pragmatisch.
-Vermeide unnötige Komplexität.
-Wichtige Pragmatik-Regeln:
-- Baue zuerst eine robuste 1-Stream-Lösung, keine Generalisierung auf beliebig viele Streams.
-- Keine Microservice-Spielereien.
-- Kein Kubernetes, kein Docker-Zwang auf dem Pi.
-- Kein schweres Frontend-Framework, wenn es nicht nötig ist.
-- Bevorzuge Stabilität und Wartbarkeit.
-- Lieber klare lokale Dateien und systemd als komplizierte Runtime-Magie.
-- Wenn zwischen “schön” und “robust” entschieden werden muss, nimm “robust”.
-- Wenn eine Funktion ohne echtes NDI SDK nicht vollständig verifiziert werden kann, implementiere die reale Struktur trotzdem und markiere präzise, was noch lokal getestet werden muss.
-- Liefere keine bloße Skizze, sondern ein möglichst startbares Skelett.
-Bitte verwende folgende Defaults, außer es gibt einen sehr guten Grund dagegen:
-- Node backend: Fastify
-- Frontend: server-rendered einfache Templates oder sehr leichtes statisches Frontend
-- Live updates: SSE statt WebSocket
-- Config: YAML
-- Logging Node: pino
-- Native receiver: C++17 + CMake
-- Rendering: SDL2 KMSDRM
-- Prozessmodell: Node-Webdienst verwaltet nativen Receiver als Child-Prozess
-- Discovery: nativer Receiver unterstützt CLI-Unterbefehl "discover" und gibt JSON aus
-- Status: nativer Receiver schreibt zusätzlich JSON-Statusdatei
-Vergiss die Betriebsdetails nicht:
-- systemd Restart-Policy
-- stdout/stderr in journal
-- persistente Logdateien optional zusätzlich
-- graceful shutdown bei SIGTERM
-- Receiver-Prozess sauber beenden
-- Locking gegen mehrfachen Start
-- API soll klar melden, ob Receiver bereits läuft
-- Discovery darf einen laufenden Receiver nicht unbeabsichtigt stören
-- wenn HDMI-Display beim Boot noch nicht sauber erkannt ist, soll das Verhalten dokumentiert und möglichst robust behandelt werden
+Provide:
+
+1. full project structure
+2. all files with real content
+3. root README with build and deployment instructions
+4. step-by-step Raspberry Pi instructions
+5. explanation of local testing
+6. list of open points / risks
+7. clear build and start commands
+8. example `systemd` setup
+9. example configuration
+10. API documentation
+
+### K) Technical Notes
+
+- target OS is Raspberry Pi OS Bookworm Lite without a desktop
+- direct display output must work without X11/Wayland
+- KMS/DRM is the preferred Linux path
+- the solution must not depend on a desktop window manager
+- the project should behave like an appliance
+- Node.js must not render video frames
+- receiver and Web UI should stay clearly separated
+- the native component must handle disconnects robustly
+- logging and operability matter more than cosmetic extras
+
+### L) Recommended Work Order
+
+1. define and document the architecture
+2. create the project structure
+3. implement the Node web app
+4. implement the native receiver skeleton
+5. define discovery and control interfaces
+6. implement config, logging, and status handling
+7. add `systemd` and deployment files
+8. complete README and docs
+9. mark open NDI SDK integration points precisely
+10. finish with a realistic operational risk section
+
+## Pragmatic Rules
+
+- build a robust one-stream solution first
+- no microservice split
+- no Kubernetes
+- no Docker requirement on the Pi
+- do not use a heavy frontend framework without a strong reason
+- prefer stability and maintainability over cleverness
+- prefer local files plus `systemd` over runtime magic
+- when choosing between “pretty” and “robust”, choose “robust”
+- when a feature cannot be fully verified without the real NDI SDK, implement the real structure anyway and document the exact remaining test points
+
+## Default Technology Choices
+
+Unless there is a strong reason otherwise:
+
+- backend: Fastify
+- frontend: server-rendered templates or a tiny static frontend layer
+- live updates: SSE
+- config: YAML
+- Node logging: pino
+- native receiver: C++17 + CMake
+- rendering: SDL2 KMSDRM
+- process model: web service manages the native receiver as a child process
+- discovery: native receiver supports a `discover` CLI subcommand with JSON output
+- status: native receiver additionally writes a JSON status file
+
+## Operational Details That Must Not Be Forgotten
+
+- `systemd` restart policy
+- stdout/stderr into journal
+- optional persistent log files
+- graceful shutdown on `SIGTERM`
+- clean receiver-process termination
+- locking against multiple starts
+- API must clearly indicate whether the receiver is already running
+- discovery must never disturb an active receiver unintentionally
+- if HDMI is not detected cleanly during boot, document the behavior and fallback handling

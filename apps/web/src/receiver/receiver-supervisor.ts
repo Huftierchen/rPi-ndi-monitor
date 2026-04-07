@@ -484,6 +484,7 @@ export class ReceiverSupervisor {
       return;
     }
 
+    // Reuse the same tty1 standby renderer at boot, after stop, and after clean exits.
     await new Promise<void>((resolve) => {
       const child = spawn("bash", [standbyScript], {
         cwd: this.paths.repoRoot,

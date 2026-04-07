@@ -10,6 +10,7 @@
 
 namespace ndi_receiver {
 
+// Discovery metadata for a single NDI source as exposed to the web control plane.
 struct NdiSource {
   std::string id;
   std::string name;
@@ -23,6 +24,7 @@ struct NdiSource {
 
 enum class VideoPixelFormat { kRgba, kRgbx, kBgra, kBgrx, kUyvy };
 
+// Owns a received video frame until the renderer is finished with it.
 struct VideoFrame {
   int width = 0;
   int height = 0;
@@ -72,9 +74,13 @@ class INdiBackend {
  public:
   virtual ~INdiBackend() = default;
 
+  // Runs a short discovery pass without disturbing any active playback instance.
   virtual std::vector<NdiSource> Discover(int timeout_ms) = 0;
+  // Connects a new receiver instance for the configured source and runtime options.
   virtual bool Connect(const RunOptions& options, std::string* error_message) = 0;
+  // Returns the next receiver event, frame, or timeout snapshot.
   virtual PollResult Poll(int timeout_ms) = 0;
+  // Exposes queue depth and drop counters from the underlying NDI runtime.
   virtual BackendDiagnostics GetDiagnostics() = 0;
   virtual void Disconnect() = 0;
 };
