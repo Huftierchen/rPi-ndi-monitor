@@ -1,0 +1,26 @@
+[Unit]
+Description=NDI Monitor Web Control Plane
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ndi-monitor
+Group=ndi-monitor
+SupplementaryGroups=video audio render
+WorkingDirectory=/opt/ndi-monitor
+Environment=NODE_ENV=production
+Environment=NDI_MONITOR_CONFIG_PATH=/etc/ndi-receiver/config.yaml
+Environment=NDI_MONITOR_RUNTIME_ROOT=/var/lib/ndi-receiver
+Environment=NDI_MONITOR_RECEIVER_BINARY=/opt/ndi-monitor/apps/receiver/build/ndi-receiver
+ExecStart=/usr/bin/node /opt/ndi-monitor/apps/web/dist/index.js
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=15
+StandardOutput=journal
+StandardError=journal
+NoNewPrivileges=true
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target
