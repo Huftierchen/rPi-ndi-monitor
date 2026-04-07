@@ -2,6 +2,7 @@
 
 #include <filesystem>
 #include <fstream>
+#include <stdexcept>
 
 #include "logger.h"
 
@@ -49,10 +50,24 @@ void StatusWriter::Write(const ReceiverStatusSnapshot& snapshot) const {
   const std::filesystem::path temp = target.string() + ".tmp";
 
   std::ofstream output(temp, std::ios::trunc);
+  if (!output.is_open()) {
+    throw std::runtime_error("Failed to open status temp file for writing: " + temp.string());
+  }
   output << serialize_status_snapshot_json(snapshot) << "\n";
+  if (!output.good()) {
+    throw std::runtime_error("Failed to write receiver status snapshot: " + temp.string());
+  }
   output.close();
+  if (output.fail()) {
+    throw std::runtime_error("Failed to flush receiver status snapshot: " + temp.string());
+  }
 
-  std::filesystem::rename(temp, target);
+  std::error_code rename_error;
+  std::filesystem::rename(temp, target, rename_error);
+  if (rename_error) {
+    throw std::runtime_error("Failed to promote receiver status snapshot: " +
+                             rename_error.message());
+  }
 }
 
 const std::string& StatusWriter::path() const { return path_; }

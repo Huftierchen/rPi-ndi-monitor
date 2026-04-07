@@ -10,6 +10,7 @@
 #include <cstring>
 #include <limits>
 #include <memory>
+#include <mutex>
 #include <string>
 
 #ifdef HAVE_SDL2
@@ -86,14 +87,19 @@ bool supports_video_fourcc(NDIlib_FourCC_video_type_e fourcc) {
 
 class NdiSdkBackend final : public INdiBackend {
  public:
-  NdiSdkBackend() { NDIlib_initialize(); }
+  NdiSdkBackend() : initialized_(NDIlib_initialize()) {}
 
   ~NdiSdkBackend() override {
     Disconnect();
-    NDIlib_destroy();
+    if (initialized_) {
+      NDIlib_destroy();
+    }
   }
 
   std::vector<NdiSource> Discover(int timeout_ms) override {
+    if (!initialized_) {
+      return {};
+    }
     std::vector<NdiSource> result = FindSources(timeout_ms);
     if (result.empty()) {
       return result;
@@ -110,6 +116,12 @@ class NdiSdkBackend final : public INdiBackend {
 
   bool Connect(const RunOptions& options, std::string* error_message) override {
     Disconnect();
+    if (!initialized_) {
+      if (error_message != nullptr) {
+        *error_message = "Failed to initialize the NDI runtime";
+      }
+      return false;
+    }
 
     const auto sources = FindSources(2000);
     const auto match = std::find_if(
@@ -140,7 +152,10 @@ class NdiSdkBackend final : public INdiBackend {
     source_desc.p_ndi_name = match->name.c_str();
     source_desc.p_url_address = nullptr;
     NDIlib_recv_connect(receiver_instance_, &source_desc);
-    audio_enabled_ = options.audio_enabled;
+    {
+      const std::lock_guard<std::mutex> lock(audio_mutex_);
+      audio_enabled_ = options.audio_enabled;
+    }
     low_latency_mode_ = options.low_latency_mode;
 
     if (audio_enabled_) {
@@ -243,7 +258,10 @@ class NdiSdkBackend final : public INdiBackend {
       NDIlib_recv_destroy(receiver_instance_);
       receiver_instance_ = nullptr;
     }
-    audio_enabled_ = false;
+    {
+      const std::lock_guard<std::mutex> lock(audio_mutex_);
+      audio_enabled_ = false;
+    }
     low_latency_mode_ = false;
     audio_active_.store(false);
   }
@@ -392,8 +410,8 @@ class NdiSdkBackend final : public INdiBackend {
       SDL_InitSubSystem(SDL_INIT_AUDIO);
     }
 
-    framesync_instance_ = NDIlib_framesync_create(receiver_instance_);
-    if (framesync_instance_ == nullptr) {
+    auto* framesync_instance = NDIlib_framesync_create(receiver_instance_);
+    if (framesync_instance == nullptr) {
       return;
     }
 
@@ -410,25 +428,34 @@ class NdiSdkBackend final : public INdiBackend {
                                         SDL_AUDIO_ALLOW_CHANNELS_CHANGE |
                                             SDL_AUDIO_ALLOW_FREQUENCY_CHANGE);
     if (audio_device_ == 0) {
-      NDIlib_framesync_destroy(framesync_instance_);
-      framesync_instance_ = nullptr;
+      NDIlib_framesync_destroy(framesync_instance);
       return;
     }
 
     audio_spec_ = obtained;
+    {
+      const std::lock_guard<std::mutex> lock(audio_mutex_);
+      framesync_instance_ = framesync_instance;
+    }
     SDL_PauseAudioDevice(audio_device_, 0);
 #endif
   }
 
   void StopAudioOutput() {
 #ifdef HAVE_SDL2
+    NDIlib_framesync_instance_t framesync_instance = nullptr;
+    {
+      const std::lock_guard<std::mutex> lock(audio_mutex_);
+      audio_enabled_ = false;
+      framesync_instance = framesync_instance_;
+      framesync_instance_ = nullptr;
+    }
     if (audio_device_ != 0) {
       SDL_CloseAudioDevice(audio_device_);
       audio_device_ = 0;
     }
-    if (framesync_instance_ != nullptr) {
-      NDIlib_framesync_destroy(framesync_instance_);
-      framesync_instance_ = nullptr;
+    if (framesync_instance != nullptr) {
+      NDIlib_framesync_destroy(framesync_instance);
     }
 #endif
   }
@@ -436,6 +463,7 @@ class NdiSdkBackend final : public INdiBackend {
   void FillAudioBuffer(Uint8* stream, int length) {
 #ifdef HAVE_SDL2
     std::memset(stream, 0, static_cast<std::size_t>(length));
+    const std::lock_guard<std::mutex> lock(audio_mutex_);
     if (!audio_enabled_ || framesync_instance_ == nullptr || audio_spec_.channels <= 0 ||
         audio_spec_.freq <= 0) {
       audio_active_.store(false);
@@ -477,11 +505,13 @@ class NdiSdkBackend final : public INdiBackend {
 #endif
   }
 
+  bool initialized_ = false;
   NDIlib_recv_instance_t receiver_instance_ = nullptr;
   NDIlib_framesync_instance_t framesync_instance_ = nullptr;
   bool audio_enabled_ = false;
   bool low_latency_mode_ = true;
   std::atomic<bool> audio_active_ = false;
+  std::mutex audio_mutex_;
 #ifdef HAVE_SDL2
   SDL_AudioDeviceID audio_device_ = 0;
   SDL_AudioSpec audio_spec_ {};

@@ -4,6 +4,13 @@ set -euo pipefail
 INSTALL_ROOT="${INSTALL_ROOT:-/opt/ndi-monitor}"
 PURGE="${PURGE:-0}"
 
+case "${INSTALL_ROOT}" in
+  ""|"/"|".")
+    echo "refusing to remove unsafe INSTALL_ROOT: ${INSTALL_ROOT}" >&2
+    exit 1
+    ;;
+esac
+
 if [[ "${EUID}" -ne 0 ]]; then
   echo "run as root" >&2
   exit 1

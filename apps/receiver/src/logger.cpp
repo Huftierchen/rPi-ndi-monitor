@@ -1,6 +1,7 @@
 #include "logger.h"
 
 #include <chrono>
+#include <cstdint>
 #include <ctime>
 #include <iomanip>
 #include <iostream>
@@ -45,7 +46,7 @@ std::string now_iso8601() {
 
 std::string json_escape(const std::string& value) {
   std::ostringstream output;
-  for (const char character : value) {
+  for (const unsigned char character : value) {
     switch (character) {
       case '"':
         output << "\\\"";
@@ -63,7 +64,12 @@ std::string json_escape(const std::string& value) {
         output << "\\t";
         break;
       default:
-        output << character;
+        if (character < 0x20) {
+          output << "\\u" << std::hex << std::setw(4) << std::setfill('0')
+                 << static_cast<std::uint32_t>(character) << std::dec << std::setfill(' ');
+        } else {
+          output << static_cast<char>(character);
+        }
         break;
     }
   }
