@@ -26,6 +26,10 @@ Das Projekt commitet das NDI SDK absichtlich nicht ins Repo. Fuer einen Produkti
 - `/opt/ndi_sdk`
 - `${HOME}/third_party/ndi_sdk`
 
+Offizieller Linux-SDK-Tarball, Stand 17. Februar 2026:
+
+- `https://downloads.ndi.tv/SDK/NDI_SDK_Linux/Install_NDI_SDK_v6_Linux.tar.gz`
+
 Erwartung:
 
 - Header unter `Include/Processing.NDI.Lib.h`
@@ -37,6 +41,8 @@ Build mit SDK:
 export NDI_SDK_DIR=/opt/ndi_sdk
 sudo ./scripts/install.sh
 ```
+
+Der Installationspfad kopiert die benoetigten `libndi.so*`-Bibliotheken nach `/opt/ndi-monitor/lib` und setzt `LD_LIBRARY_PATH` im `systemd`-Dienst.
 
 Lokaler Demo-/Stub-Build ohne SDK:
 
@@ -71,6 +77,10 @@ Der Receiver nutzt SDL2 mit KMSDRM und laeuft ohne X11/Wayland. Dafuer braucht d
 - Audio-Ausgabe ueber HDMI bzw. ALSA
 
 Der Systembenutzer `ndi-monitor` wird durch das Install-Skript mit den Gruppen `video`, `audio` und `render` angelegt.
+
+## Lizenzhinweis
+
+Die derzeitige NDI-SDK-Lizenz fuer Linux schliesst fixed-purpose Appliances und Embedded-/Linux-Geraete in der Standardlizenz explizit aus. Fuer ein produktisiertes Raspberry-Pi-Appliance-Modell kann deshalb ein separater kommerzieller Vertrag mit NDI erforderlich sein.
 
 ## Bootverhalten
 

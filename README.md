@@ -172,11 +172,9 @@ Fuer README-Zwecke muessen echte Screenshots noch auf dem Zielgeraet erzeugt wer
 
 ## Offene Punkte und Risiken
 
-- Die echte NDI-SDK-Integration ist strukturell vorbereitet, aber ohne lokales SDK hier nicht verifiziert
-- Audio ueber HDMI ist als Architekturpfad vorgesehen, muss auf dem Zielgeraet mit realen Audio-Frames validiert werden
 - SDL2/KMSDRM auf Raspberry Pi 5 kann firmware- und displayabhaengige Besonderheiten zeigen
 - Fuer einen harten Produktionsbetrieb sollten Rotation/Pruning fuer NDJSON-Logdateien noch konsequent nachgezogen werden
-- `pnpm-lock.yaml` fehlt noch, weil die Abhaengigkeiten in diesem leeren Workspace erst lokal installiert und eingefroren werden muessen
+- Die aktuelle NDI-SDK-Lizenz schliesst fixed-purpose Appliances, Embedded-Linux und aehnliche Produktformen ausdruecklich aus; fuer eine echte Produktisierung dieses Pi-Appliance-Modells kann laut NDI ein kommerzieller Lizenzvertrag erforderlich sein
 
 ## Lokales Testen
 

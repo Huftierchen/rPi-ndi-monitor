@@ -1,4 +1,4 @@
-import { access, readFile } from "node:fs/promises";
+import { access, readFile, unlink } from "node:fs/promises";
 import { constants } from "node:fs";
 import { spawn, type ChildProcess } from "node:child_process";
 import { createInterface } from "node:readline";
@@ -275,6 +275,10 @@ export class ReceiverSupervisor {
   }
 
   private async refreshStatusFromFile(): Promise<void> {
+    if (!this.child && !this.status.desiredRunning) {
+      return;
+    }
+
     try {
       const raw = await readFile(this.paths.receiverStatusFile, "utf8");
       const parsed = JSON.parse(raw) as ReceiverStatusFile;
@@ -440,6 +444,11 @@ export class ReceiverSupervisor {
     if (unexpected) {
       this.scheduleRestart();
     } else {
+      try {
+        await unlink(this.paths.receiverStatusFile);
+      } catch {
+        // Missing status file after a clean stop is acceptable.
+      }
       this.stopping = false;
     }
   }
