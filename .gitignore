@@ -1,0 +1,16 @@
+node_modules/
+.pnpm-store/
+dist/
+coverage/
+build/
+Testing/
+.cache/
+.DS_Store
+
+runtime/
+apps/web/.turbo/
+apps/web/.vitest/
+apps/web/test-results/
+
+*.log
+*.tmp
