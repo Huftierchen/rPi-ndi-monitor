@@ -87,6 +87,9 @@
       "audio": status.audioEnabled ? (status.audioActive ? "active" : "enabled") : "disabled",
       "resolution": status.resolution || "n/a",
       "fps": status.fps ?? "n/a",
+      "dropped-video": status.droppedVideoFrames ?? "n/a",
+      "video-queue": status.videoQueueDepth ?? "n/a",
+      "audio-queue": status.audioQueueDepth ?? "n/a",
       "uptime-s": status.uptimeSeconds ?? "n/a",
       "last-error": status.lastError || "n/a",
       "restart-count": status.restartCount
@@ -143,6 +146,12 @@
           <span class="source-copy">
             <strong>${escapeHtml(source.name)}</strong>
             <small>${escapeHtml(source.address || "n/a")}</small>
+            <small class="source-facts">
+              ${escapeHtml(source.resolution || "resolution n/a")}
+              ${source.fps ? ` • ${escapeHtml(Number(source.fps).toFixed(2))} fps` : ""}
+              ${source.connectionCount !== null && source.connectionCount !== undefined ? ` • ${escapeHtml(String(source.connectionCount))} connections` : ""}
+            </small>
+            ${source.webControlUrl ? `<small><a href="${escapeHtml(source.webControlUrl)}" target="_blank" rel="noreferrer">Source web control</a></small>` : ""}
           </span>
           <span class="source-meta">${escapeHtml((source.groups || []).join(", ") || "LAN source")}</span>
         </label>

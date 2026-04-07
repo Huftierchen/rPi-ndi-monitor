@@ -31,6 +31,10 @@ class StubNdiBackend final : public INdiBackend {
         .name = source,
         .address = "stub://localhost",
         .groups = {"stub", "demo"},
+        .resolution = "1280x720",
+        .fps = 30.0,
+        .connection_count = 0,
+        .web_control_url = "",
     }};
   }
 
@@ -87,6 +91,8 @@ class StubNdiBackend final : public INdiBackend {
     ++frame_index_;
     return {.kind = PollResultKind::kFrame, .frame = std::move(frame), .audio_active = false};
   }
+
+  BackendDiagnostics GetDiagnostics() override { return {}; }
 
   void Disconnect() override { connected_ = false; }
 

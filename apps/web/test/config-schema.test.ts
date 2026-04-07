@@ -14,6 +14,7 @@ const baseConfig: AppConfig = {
     audioEnabled: false,
     scaleMode: "contain",
     bandwidthMode: "highest",
+    outputFpsCap: 0,
     autoStart: true,
     reconnect: {
       enabled: true,

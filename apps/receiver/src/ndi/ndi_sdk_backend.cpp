@@ -6,9 +6,10 @@
 
 #include <algorithm>
 #include <atomic>
+#include <chrono>
 #include <cstring>
+#include <limits>
 #include <memory>
-#include <mutex>
 #include <string>
 
 #ifdef HAVE_SDL2
@@ -19,11 +20,29 @@ namespace ndi_receiver {
 
 namespace {
 
+std::string preferred_address(const NDIlib_source_t& source) {
+  if (source.p_url_address != nullptr && source.p_url_address[0] != '\0') {
+    return source.p_url_address;
+  }
+  if (source.p_ip_address != nullptr && source.p_ip_address[0] != '\0') {
+    return source.p_ip_address;
+  }
+  return "";
+}
+
+int clamp_i64_to_int(std::int64_t value) {
+  if (value < 0) {
+    return 0;
+  }
+  if (value > static_cast<std::int64_t>(std::numeric_limits<int>::max())) {
+    return std::numeric_limits<int>::max();
+  }
+  return static_cast<int>(value);
+}
+
 class NdiSdkBackend final : public INdiBackend {
  public:
-  NdiSdkBackend() {
-    NDIlib_initialize();
-  }
+  NdiSdkBackend() { NDIlib_initialize(); }
 
   ~NdiSdkBackend() override {
     Disconnect();
@@ -31,35 +50,24 @@ class NdiSdkBackend final : public INdiBackend {
   }
 
   std::vector<NdiSource> Discover(int timeout_ms) override {
-    std::vector<NdiSource> result;
-
-    NDIlib_find_create_t create_desc;
-    create_desc.show_local_sources = true;
-    find_instance_ = NDIlib_find_create_v2(&create_desc);
-    if (find_instance_ == nullptr) {
+    std::vector<NdiSource> result = FindSources(timeout_ms);
+    if (result.empty()) {
       return result;
     }
 
-    NDIlib_find_wait_for_sources(find_instance_, timeout_ms);
-    uint32_t count = 0;
-    const NDIlib_source_t* sources = NDIlib_find_get_current_sources(find_instance_, &count);
-    for (uint32_t index = 0; index < count; ++index) {
-      NdiSource source;
-      source.id = sources[index].p_ndi_name ? sources[index].p_ndi_name : "";
-      source.name = sources[index].p_ndi_name ? sources[index].p_ndi_name : "";
-      source.address = sources[index].p_ip_address ? sources[index].p_ip_address : "";
-      result.push_back(std::move(source));
+    const int per_source_timeout =
+        std::clamp(timeout_ms / std::max<int>(1, static_cast<int>(result.size())), 150, 500);
+    for (auto& source : result) {
+      ProbeSourceMetadata(source, per_source_timeout);
     }
 
-    NDIlib_find_destroy(find_instance_);
-    find_instance_ = nullptr;
     return result;
   }
 
   bool Connect(const RunOptions& options, std::string* error_message) override {
     Disconnect();
 
-    const auto sources = Discover(2000);
+    const auto sources = FindSources(2000);
     const auto match = std::find_if(
         sources.begin(), sources.end(),
         [&options](const NdiSource& source) { return source.name == options.source_name; });
@@ -153,6 +161,25 @@ class NdiSdkBackend final : public INdiBackend {
     }
   }
 
+  BackendDiagnostics GetDiagnostics() override {
+    BackendDiagnostics diagnostics;
+    if (receiver_instance_ == nullptr) {
+      return diagnostics;
+    }
+
+    NDIlib_recv_performance_t total {};
+    NDIlib_recv_performance_t dropped {};
+    NDIlib_recv_queue_t queue {};
+    NDIlib_recv_get_performance(receiver_instance_, &total, &dropped);
+    NDIlib_recv_get_queue(receiver_instance_, &queue);
+
+    diagnostics.dropped_video_frames = clamp_i64_to_int(dropped.video_frames);
+    diagnostics.dropped_audio_frames = clamp_i64_to_int(dropped.audio_frames);
+    diagnostics.video_queue_depth = std::max(queue.video_frames, 0);
+    diagnostics.audio_queue_depth = std::max(queue.audio_frames, 0);
+    return diagnostics;
+  }
+
   void Disconnect() override {
     StopAudioOutput();
 
@@ -160,15 +187,100 @@ class NdiSdkBackend final : public INdiBackend {
       NDIlib_recv_destroy(receiver_instance_);
       receiver_instance_ = nullptr;
     }
-    if (find_instance_ != nullptr) {
-      NDIlib_find_destroy(find_instance_);
-      find_instance_ = nullptr;
-    }
     audio_enabled_ = false;
     audio_active_.store(false);
   }
 
  private:
+  std::vector<NdiSource> FindSources(int timeout_ms) {
+    std::vector<NdiSource> result;
+
+    NDIlib_find_create_t create_desc {};
+    create_desc.show_local_sources = true;
+    NDIlib_find_instance_t finder = NDIlib_find_create_v2(&create_desc);
+    if (finder == nullptr) {
+      return result;
+    }
+
+    NDIlib_find_wait_for_sources(finder, timeout_ms);
+    uint32_t count = 0;
+    const NDIlib_source_t* sources = NDIlib_find_get_current_sources(finder, &count);
+    for (uint32_t index = 0; index < count; ++index) {
+      NdiSource source;
+      source.id = sources[index].p_ndi_name ? sources[index].p_ndi_name : "";
+      source.name = sources[index].p_ndi_name ? sources[index].p_ndi_name : "";
+      source.address = preferred_address(sources[index]);
+      result.push_back(std::move(source));
+    }
+
+    NDIlib_find_destroy(finder);
+    return result;
+  }
+
+  void ProbeSourceMetadata(NdiSource& source, int timeout_ms) {
+    NDIlib_recv_create_v3_t recv_desc {};
+    recv_desc.color_format = NDIlib_recv_color_format_fastest;
+    recv_desc.bandwidth = NDIlib_recv_bandwidth_lowest;
+    recv_desc.allow_video_fields = false;
+
+    NDIlib_recv_instance_t probe_instance = NDIlib_recv_create_v3(&recv_desc);
+    if (probe_instance == nullptr) {
+      return;
+    }
+
+    NDIlib_source_t source_desc {};
+    source_desc.p_ndi_name = source.name.c_str();
+    source_desc.p_url_address = nullptr;
+    NDIlib_recv_connect(probe_instance, &source_desc);
+
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms);
+    bool got_video = false;
+    while (std::chrono::steady_clock::now() < deadline && !got_video) {
+      const auto remaining_ms = std::max(
+          10,
+          static_cast<int>(std::chrono::duration_cast<std::chrono::milliseconds>(
+                               deadline - std::chrono::steady_clock::now())
+                               .count()));
+
+      NDIlib_video_frame_v2_t video_frame {};
+      NDIlib_audio_frame_v3_t audio_frame {};
+      NDIlib_metadata_frame_t metadata_frame {};
+      switch (NDIlib_recv_capture_v3(probe_instance, &video_frame, &audio_frame, &metadata_frame,
+                                     static_cast<uint32_t>(remaining_ms))) {
+        case NDIlib_frame_type_video:
+          source.resolution =
+              std::to_string(video_frame.xres) + "x" + std::to_string(video_frame.yres);
+          source.fps = video_frame.frame_rate_D != 0
+                           ? static_cast<double>(video_frame.frame_rate_N) /
+                                 static_cast<double>(video_frame.frame_rate_D)
+                           : 0.0;
+          NDIlib_recv_free_video_v2(probe_instance, &video_frame);
+          got_video = true;
+          break;
+        case NDIlib_frame_type_audio:
+          NDIlib_recv_free_audio_v3(probe_instance, &audio_frame);
+          break;
+        case NDIlib_frame_type_metadata:
+          NDIlib_recv_free_metadata(probe_instance, &metadata_frame);
+          break;
+        case NDIlib_frame_type_none:
+        case NDIlib_frame_type_status_change:
+        case NDIlib_frame_type_source_change:
+        case NDIlib_frame_type_error:
+        default:
+          break;
+      }
+    }
+
+    source.connection_count = std::max(NDIlib_recv_get_no_connections(probe_instance), 0);
+    if (const char* web_control_url = NDIlib_recv_get_web_control(probe_instance)) {
+      source.web_control_url = web_control_url;
+      NDIlib_recv_free_string(probe_instance, web_control_url);
+    }
+
+    NDIlib_recv_destroy(probe_instance);
+  }
+
   static void AudioCallback(void* userdata, Uint8* stream, int length) {
 #ifdef HAVE_SDL2
     auto* self = static_cast<NdiSdkBackend*>(userdata);
@@ -275,7 +387,6 @@ class NdiSdkBackend final : public INdiBackend {
 #endif
   }
 
-  NDIlib_find_instance_t find_instance_ = nullptr;
   NDIlib_recv_instance_t receiver_instance_ = nullptr;
   NDIlib_framesync_instance_t framesync_instance_ = nullptr;
   bool audio_enabled_ = false;

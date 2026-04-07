@@ -16,12 +16,36 @@ std::atomic<bool> g_stop_requested(false);
 
 void signal_handler(int) { g_stop_requested.store(true); }
 
+std::string maybe_json_string(const std::string& value) {
+  if (value.empty()) {
+    return "null";
+  }
+  return "\"" + json_escape(value) + "\"";
+}
+
+std::string maybe_json_number(double value) {
+  if (value <= 0.0) {
+    return "null";
+  }
+  return std::to_string(value);
+}
+
+std::string maybe_json_int(int value) {
+  if (value < 0) {
+    return "null";
+  }
+  return std::to_string(value);
+}
+
 std::string render_sources_json(const std::vector<NdiSource>& sources) {
   std::string output = "[";
   for (std::size_t index = 0; index < sources.size(); ++index) {
     const auto& source = sources[index];
     output += "{\"id\":\"" + json_escape(source.id) + "\",\"name\":\"" + json_escape(source.name) +
-              "\",\"address\":\"" + json_escape(source.address) + "\",\"groups\":[";
+              "\",\"address\":" + maybe_json_string(source.address) + ",\"resolution\":" +
+              maybe_json_string(source.resolution) + ",\"fps\":" + maybe_json_number(source.fps) +
+              ",\"connectionCount\":" + maybe_json_int(source.connection_count) +
+              ",\"webControlUrl\":" + maybe_json_string(source.web_control_url) + ",\"groups\":[";
     for (std::size_t group_index = 0; group_index < source.groups.size(); ++group_index) {
       output += "\"" + json_escape(source.groups[group_index]) + "\"";
       if (group_index + 1 < source.groups.size()) {

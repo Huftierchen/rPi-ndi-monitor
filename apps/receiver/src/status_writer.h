@@ -13,6 +13,10 @@ struct ReceiverStatusSnapshot {
   bool audio_active = false;
   std::string resolution;
   double fps = 0.0;
+  int dropped_video_frames = 0;
+  int dropped_audio_frames = 0;
+  int video_queue_depth = 0;
+  int audio_queue_depth = 0;
   std::string started_at;
   int uptime_seconds = 0;
   std::string last_error;

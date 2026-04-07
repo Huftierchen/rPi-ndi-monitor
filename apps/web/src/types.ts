@@ -17,6 +17,7 @@ export interface AppConfig {
     audioEnabled: boolean;
     scaleMode: ScaleMode;
     bandwidthMode: BandwidthMode;
+    outputFpsCap: number;
     autoStart: boolean;
     reconnect: {
       enabled: boolean;
@@ -80,6 +81,10 @@ export interface ReceiverRuntimeStatus {
   audioActive: boolean;
   resolution: string | null;
   fps: number | null;
+  droppedVideoFrames: number | null;
+  droppedAudioFrames: number | null;
+  videoQueueDepth: number | null;
+  audioQueueDepth: number | null;
   startedAt: string | null;
   uptimeSeconds: number | null;
   lastError: string | null;
@@ -100,6 +105,10 @@ export interface ReceiverStatusFile {
   audioActive: boolean;
   resolution: string | null;
   fps: number | null;
+  droppedVideoFrames: number | null;
+  droppedAudioFrames: number | null;
+  videoQueueDepth: number | null;
+  audioQueueDepth: number | null;
   startedAt: string | null;
   uptimeSeconds: number | null;
   lastError: string | null;
@@ -112,6 +121,10 @@ export interface DiscoverySource {
   address?: string;
   groups?: string[];
   isAvailable?: boolean;
+  resolution?: string | null;
+  fps?: number | null;
+  connectionCount?: number | null;
+  webControlUrl?: string | null;
 }
 
 export interface DiscoverySnapshot {

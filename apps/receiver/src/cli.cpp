@@ -67,6 +67,8 @@ CliOptions parse_cli(int argc, char** argv) {
         options.run.scale_mode = parse_scale_mode(require_value(argc, argv, index));
       } else if (is_flag(argument, "--bandwidth-mode")) {
         options.run.bandwidth_mode = parse_bandwidth_mode(require_value(argc, argv, index));
+      } else if (is_flag(argument, "--output-fps-cap")) {
+        options.run.output_fps_cap = std::stoi(require_value(argc, argv, index));
       } else if (is_flag(argument, "--status-file")) {
         options.run.status_file = require_value(argc, argv, index);
       } else if (is_flag(argument, "--json-logs")) {
@@ -139,6 +141,7 @@ Run options:
   --log-level trace|debug|info|warn|error
   --scale-mode contain|cover|stretch
   --bandwidth-mode highest|lowest
+  --output-fps-cap VALUE
   --json-logs
   --fullscreen enabled|disabled
   --hdmi-output-hint VALUE
