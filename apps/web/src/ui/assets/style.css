@@ -168,6 +168,25 @@ button:disabled {
   margin-bottom: 0.35rem;
 }
 
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+}
+
+.info-card {
+  background: var(--panel-alt);
+  border-radius: 0.9rem;
+  padding: 0.85rem;
+  min-height: 5.4rem;
+}
+
+.info-card .label {
+  display: block;
+  color: var(--muted);
+  margin-bottom: 0.35rem;
+}
+
 .actions {
   display: flex;
   flex-wrap: wrap;
@@ -179,6 +198,35 @@ button:disabled {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 0.9rem;
+}
+
+.stack {
+  display: grid;
+  gap: 1rem;
+}
+
+.form-section {
+  display: grid;
+  gap: 0.9rem;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 0.95rem;
+  background: linear-gradient(180deg, rgba(238, 242, 234, 0.55), #fff);
+}
+
+.section-heading {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.section-heading h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.section-heading p {
+  margin: 0;
+  color: var(--muted);
 }
 
 label {
@@ -288,6 +336,15 @@ input[type="checkbox"] {
 .list,
 .flash {
   color: var(--muted);
+}
+
+.list {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
+.list li + li {
+  margin-top: 0.45rem;
 }
 
 .flash {
