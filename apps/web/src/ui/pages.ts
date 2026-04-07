@@ -20,11 +20,11 @@ function humanizeState(value: string | null | undefined): string {
 function scaleModeLabel(mode: AppConfig["receiver"]["scaleMode"]): string {
   switch (mode) {
     case "contain":
-      return "Contain: keep the full frame visible";
+      return "Contain";
     case "cover":
-      return "Cover: fill the screen and allow cropping";
+      return "Cover";
     case "stretch":
-      return "Stretch: fill the screen without preserving aspect ratio";
+      return "Stretch";
     default:
       return mode;
   }
@@ -33,9 +33,9 @@ function scaleModeLabel(mode: AppConfig["receiver"]["scaleMode"]): string {
 function bandwidthModeLabel(mode: AppConfig["receiver"]["bandwidthMode"]): string {
   switch (mode) {
     case "highest":
-      return "Highest: full-resolution NDI stream";
+      return "Highest";
     case "lowest":
-      return "Lowest: reduced bandwidth and resolution";
+      return "Lowest";
     default:
       return mode;
   }
@@ -156,6 +156,7 @@ function settingsForm(config: AppConfig): string {
                   .join("")}
               </select>
             </label>
+            <p class="hint">Scale mode: contain keeps the whole frame visible, cover fills the display and may crop, stretch fills the display without preserving aspect ratio.</p>
             <label><span>NDI bandwidth mode</span>
               <select name="receiver.bandwidthMode">
                 ${bandwidthModes
@@ -168,6 +169,7 @@ function settingsForm(config: AppConfig): string {
                   .join("")}
               </select>
             </label>
+            <p class="hint">Bandwidth mode: highest requests the full stream, lowest requests a reduced-bandwidth stream and is usually the safer choice on Raspberry Pi 4.</p>
             <label><span>Audio over HDMI</span><input type="checkbox" name="receiver.audioEnabled" ${
               config.receiver.audioEnabled ? "checked" : ""
             } /></label>
