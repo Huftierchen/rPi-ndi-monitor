@@ -4,6 +4,9 @@ export type ScaleMode = (typeof scaleModes)[number];
 export const bandwidthModes = ["highest", "lowest"] as const;
 export type BandwidthMode = (typeof bandwidthModes)[number];
 
+export const colorFormats = ["fastest", "uyvy", "rgba"] as const;
+export type ColorFormat = (typeof colorFormats)[number];
+
 export const logLevels = ["trace", "debug", "info", "warn", "error"] as const;
 export type LogLevel = (typeof logLevels)[number];
 
@@ -17,7 +20,9 @@ export interface AppConfig {
     audioEnabled: boolean;
     scaleMode: ScaleMode;
     bandwidthMode: BandwidthMode;
+    colorFormat: ColorFormat;
     outputFpsCap: number;
+    lowLatencyMode: boolean;
     autoStart: boolean;
     reconnect: {
       enabled: boolean;

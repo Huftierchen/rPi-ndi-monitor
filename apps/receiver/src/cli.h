@@ -18,6 +18,7 @@ enum class ExitCode {
 enum class LogLevel { kTrace, kDebug, kInfo, kWarn, kError };
 enum class ScaleMode { kContain, kCover, kStretch };
 enum class BandwidthMode { kHighest, kLowest };
+enum class ColorFormat { kRgba, kUyvy, kFastest };
 enum class CommandKind { kRun, kDiscover, kHelp };
 
 struct RunOptions {
@@ -26,7 +27,9 @@ struct RunOptions {
   LogLevel log_level = LogLevel::kInfo;
   ScaleMode scale_mode = ScaleMode::kContain;
   BandwidthMode bandwidth_mode = BandwidthMode::kHighest;
+  ColorFormat color_format = ColorFormat::kFastest;
   int output_fps_cap = 0;
+  bool low_latency_mode = true;
   std::string status_file;
   bool json_logs = false;
   bool fullscreen = true;
@@ -54,5 +57,6 @@ std::string render_help();
 std::string to_string(LogLevel level);
 std::string to_string(ScaleMode mode);
 std::string to_string(BandwidthMode mode);
+std::string to_string(ColorFormat format);
 
 }  // namespace ndi_receiver

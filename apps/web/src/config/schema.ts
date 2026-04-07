@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { bandwidthModes, logLevels, scaleModes, type AppConfig } from "../types.js";
+import { bandwidthModes, colorFormats, logLevels, scaleModes, type AppConfig } from "../types.js";
 
 export const appConfigSchema = z.object({
   server: z.object({
@@ -12,7 +12,9 @@ export const appConfigSchema = z.object({
     audioEnabled: z.boolean(),
     scaleMode: z.enum(scaleModes),
     bandwidthMode: z.enum(bandwidthModes).default("highest"),
+    colorFormat: z.enum(colorFormats).default("fastest"),
     outputFpsCap: z.number().int().min(0).max(120).default(0),
+    lowLatencyMode: z.boolean().default(true),
     autoStart: z.boolean(),
     reconnect: z.object({
       enabled: z.boolean(),

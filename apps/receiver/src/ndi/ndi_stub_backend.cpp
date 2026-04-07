@@ -71,6 +71,7 @@ class StubNdiBackend final : public INdiBackend {
     frame.height = 720;
     frame.fps = 30.0;
     frame.stride_bytes = frame.width * 4;
+    frame.pixel_format = VideoPixelFormat::kRgba;
     frame.owned_rgba.resize(static_cast<std::size_t>(frame.width * frame.height * 4));
 
     for (int y = 0; y < frame.height; ++y) {

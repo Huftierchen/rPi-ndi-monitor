@@ -38,9 +38,26 @@ SDL_Rect CalculateDestinationRect(int target_width, int target_height, int frame
   return SDL_Rect{(target_width - width) / 2, (target_height - height) / 2, width, height};
 }
 
+Uint32 to_sdl_pixel_format(VideoPixelFormat format) {
+  switch (format) {
+    case VideoPixelFormat::kRgba:
+      return SDL_PIXELFORMAT_RGBA8888;
+    case VideoPixelFormat::kRgbx:
+      return SDL_PIXELFORMAT_RGBX8888;
+    case VideoPixelFormat::kBgra:
+      return SDL_PIXELFORMAT_BGRA8888;
+    case VideoPixelFormat::kBgrx:
+      return SDL_PIXELFORMAT_BGRX8888;
+    case VideoPixelFormat::kUyvy:
+      return SDL_PIXELFORMAT_UYVY;
+  }
+  return SDL_PIXELFORMAT_RGBA8888;
+}
+
 class SdlRenderer final : public IRenderer {
  public:
   bool Initialize(const RunOptions& options, std::string* error_message) override {
+    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
     if (SDL_Init(SDL_INIT_VIDEO) != 0) {
       if (error_message != nullptr) {
         *error_message = SDL_GetError();
@@ -80,17 +97,21 @@ class SdlRenderer final : public IRenderer {
       return;
     }
 
-    if (texture_ == nullptr || frame.width != frame_width_ || frame.height != frame_height_) {
+    const Uint32 texture_format = to_sdl_pixel_format(frame.pixel_format);
+    if (texture_ == nullptr || frame.width != frame_width_ || frame.height != frame_height_ ||
+        texture_format != texture_format_) {
       if (texture_ != nullptr) {
         SDL_DestroyTexture(texture_);
       }
-      texture_ = SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING,
+      texture_ = SDL_CreateTexture(renderer_, texture_format, SDL_TEXTUREACCESS_STREAMING,
                                    frame.width, frame.height);
       frame_width_ = frame.width;
       frame_height_ = frame.height;
+      texture_format_ = texture_format;
       if (texture_ == nullptr) {
         return;
       }
+      SDL_SetTextureBlendMode(texture_, SDL_BLENDMODE_NONE);
     }
 
     SDL_UpdateTexture(texture_, nullptr, pixels, frame.stride_bytes);
@@ -128,6 +149,7 @@ class SdlRenderer final : public IRenderer {
   SDL_Texture* texture_ = nullptr;
   int frame_width_ = 0;
   int frame_height_ = 0;
+  Uint32 texture_format_ = SDL_PIXELFORMAT_UNKNOWN;
 };
 
 #else
