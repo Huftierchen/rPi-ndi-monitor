@@ -1,3 +1,4 @@
+import path from "node:path";
 import { access } from "node:fs/promises";
 import { constants } from "node:fs";
 import { spawn, type ChildProcess } from "node:child_process";
@@ -44,6 +45,7 @@ export class ReceiverSupervisor {
   }
 
   public async init(): Promise<void> {
+    await this.renderStandbyScreen();
     const config = this.configService.getCached();
     if (config.receiver.autoStart) {
       await this.start();
@@ -188,6 +190,7 @@ export class ReceiverSupervisor {
         uptimeSeconds: null,
         updatedAt: new Date().toISOString()
       });
+      await this.renderStandbyScreen();
       return this.getStatus();
     }
 
@@ -463,9 +466,38 @@ export class ReceiverSupervisor {
 
     if (unexpected) {
       this.scheduleRestart();
-    } else {
-      this.stopping = false;
     }
+    this.stopping = false;
+    await this.renderStandbyScreen();
+  }
+
+  private async renderStandbyScreen(): Promise<void> {
+    const standbyScript = path.join(this.paths.repoRoot, "scripts", "standby-screen.sh");
+
+    try {
+      await access(standbyScript, constants.R_OK);
+    } catch {
+      return;
+    }
+
+    await new Promise<void>((resolve) => {
+      const child = spawn("bash", [standbyScript], {
+        cwd: this.paths.repoRoot,
+        env: {
+          ...process.env,
+          CONFIG_FILE: this.paths.configFile
+        },
+        stdio: "ignore"
+      });
+
+      child.once("error", async (error) => {
+        await this.logger.warn("Failed to render standby screen", {
+          error: error.message
+        });
+        resolve();
+      });
+      child.once("exit", () => resolve());
+    });
   }
 
   private scheduleRestart(): void {

@@ -1,6 +1,6 @@
 # NDI Monitor fuer Raspberry Pi 5
 
-`ndi-monitor` ist ein Monorepo fuer eine headless NDI-Appliance auf Raspberry Pi 5. Der Pi bootet ohne Desktop in `multi-user.target`, zeigt im Idle-Zustand einen einfachen HDMI-Standby-Screen mit der Web-UI-Adresse und gibt nach Start genau einen ausgewaehlten NDI-Stream fullscreen ueber KMS/DRM aus.
+`ndi-monitor` ist ein Monorepo fuer eine headless NDI-Appliance auf Raspberry Pi 5. Der Pi bootet ohne Desktop in `multi-user.target`, zeigt im Idle-Zustand einen HDMI-Standby-Screen mit Web-UI-URL, Hostname, IP und QR-Code und gibt nach Start genau einen ausgewaehlten NDI-Stream fullscreen ueber KMS/DRM aus.
 
 Die Steuerung laeuft ueber eine lokale Web-Oberflaeche. Node.js ist nur die Control Plane. Der eigentliche NDI-Empfang und das Rendering passieren in einer nativen C++-Komponente.
 
@@ -11,7 +11,7 @@ Der aktuelle Stand ist produktionsnah und auf dem Zielgeraet verifiziert:
 - Web-UI, REST-API und SSE laufen unter `ndi-web.service`
 - Discovery, Source-Switch, Start, Stop, Restart und Reconnect funktionieren
 - der Receiver laeuft als Child-Prozess des Web-Dienstes
-- HDMI-Standby-Screen ersetzt auf `tty1` den normalen Login-Prompt
+- HDMI-Standby-Screen mit QR-Code ersetzt auf `tty1` den normalen Login-Prompt
 - echte NDI-Wiedergabe wurde auf diesem Pi gegen einen TouchDesigner-Stream verifiziert
 - Logs werden persistent geschrieben, der Receiver-Status laeuft live ueber Prozess-Events
 
@@ -36,7 +36,8 @@ Aktuell verifiziertes Git-Setup in diesem Repo:
 - der Web-Dienst verwaltet den nativen Receiver als Child-Prozess
 - Discovery laeuft als separater nativer CLI-Aufruf
 - Status kommt primaer aus nativen Live-Ereignissen; die Statusdatei bleibt als letzter persistierter Snapshot
-- `ndi-standby.service` schreibt im Idle-Zustand den Appliance-Text auf `tty1`
+- `ndi-standby.service` schreibt beim Boot den Appliance-Screen auf `tty1`
+- der Web-Supervisor zeichnet denselben Standby-Screen nach `Stop` oder Receiver-Exit erneut
 
 Mehr Details: [ARCHITECTURE.md](/home/pi/ndi-monitor/docs/ARCHITECTURE.md)
 
@@ -77,7 +78,7 @@ Kurzform:
 sudo apt-get update
 sudo apt-get install -y \
   git rsync curl ca-certificates build-essential cmake pkg-config \
-  libsdl2-dev libasound2-dev ripgrep avahi-daemon
+  libsdl2-dev libasound2-dev ripgrep avahi-daemon qrencode
 
 git clone https://github.com/Huftierchen/rPi5-ndi-monitor.git /home/pi/ndi-monitor
 cd /home/pi/ndi-monitor
@@ -89,7 +90,7 @@ sudo reboot
 
 Nach dem Reboot:
 
-- HDMI zeigt den Standby-Screen mit der Web-UI-Adresse
+- HDMI zeigt den Standby-Screen mit Web-UI-URL, Hostname, IP und QR-Code
 - Web-UI ist unter `http://<pi-ip>:8080/` erreichbar
 - auf `/sources` die gewuenschte NDI-Quelle auswaehlen
 - optional `autoStart` in `/settings` aktivieren

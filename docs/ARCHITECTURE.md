@@ -14,7 +14,7 @@ Der Pi bootet ohne Desktop in `multi-user.target`. Die Web-Control-Plane laeuft 
 ### Dienste
 
 - `ndi-web.service`: Hauptdienst fuer HTTP, UI, API, SSE, Config, Logs und Receiver-Supervision
-- `ndi-standby.service`: schreibt im Idle-Zustand den Appliance-Text auf `tty1`
+- `ndi-standby.service`: schreibt im Idle-Zustand den Appliance-Screen mit Web-UI-QR-Code auf `tty1`
 - `getty@tty1.service`: wird im Appliance-Betrieb deaktiviert, damit kein Login-Prompt auf HDMI erscheint
 
 ### Produktionspfade
@@ -128,7 +128,7 @@ Der Pi soll sich wie ein Geraet und nicht wie ein Linux-Loginhost verhalten. Des
 
 Ergebnis:
 
-- waehrend der Receiver nicht laeuft, zeigt HDMI den Standby-Screen mit Web-UI-Adresse
+- waehrend der Receiver nicht laeuft, zeigt HDMI den Standby-Screen mit Web-UI-URL, QR-Code, Hostname und IP
 - sobald der Receiver startet, uebernimmt der KMS/DRM-Renderer den Bildschirm
 - kein sichtbarer Desktop, kein Mauszeiger, kein Login-Prompt
 
