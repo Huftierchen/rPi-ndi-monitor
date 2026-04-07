@@ -24,7 +24,12 @@ find_library(
   HINTS
     ${NDI_SDK_DIR}
     ENV NDI_SDK_DIR
-  PATH_SUFFIXES Lib/aarch64-linux-gnu Lib/arm64 lib
+  PATH_SUFFIXES
+    lib/aarch64-rpi4-linux-gnueabi
+    lib/aarch64-linux-gnu
+    Lib/aarch64-linux-gnu
+    Lib/arm64
+    lib
 )
 
 if(NDI_INCLUDE_DIR AND NDI_LIBRARY)

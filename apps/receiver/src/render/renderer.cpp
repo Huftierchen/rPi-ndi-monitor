@@ -66,6 +66,8 @@ class SdlRenderer final : public IRenderer {
       return false;
     }
 
+    SDL_ShowCursor(SDL_DISABLE);
+
     return true;
   }
 

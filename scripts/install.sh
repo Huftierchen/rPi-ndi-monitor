@@ -23,6 +23,7 @@ require_root() {
 prepare_pnpm() {
   require_command node
   require_command corepack
+  corepack enable >/dev/null 2>&1 || true
   corepack prepare pnpm@10.7.1 --activate >/dev/null
 }
 
@@ -40,8 +41,8 @@ build_project() {
   require_command rsync
 
   cd "${PROJECT_ROOT}"
-  pnpm install
-  pnpm --filter @ndi-monitor/web build
+  CI=1 corepack pnpm install --force
+  corepack pnpm --filter @ndi-monitor/web build
 
   local cmake_args=("-S" "apps/receiver" "-B" "apps/receiver/build")
   if [[ -n "${NDI_SDK_DIR:-}" ]]; then
@@ -57,6 +58,37 @@ build_project() {
   cmake --build apps/receiver/build -j"$(nproc)"
 }
 
+copy_ndi_runtime() {
+  local sdk_dir="${NDI_SDK_DIR:-/opt/ndi_sdk}"
+  local sdk_lib_dir=""
+
+  if [[ ! -d "${sdk_dir}" ]]; then
+    echo "NDI SDK directory not found: ${sdk_dir}" >&2
+    exit 1
+  fi
+
+  case "$(uname -m)" in
+    aarch64)
+      sdk_lib_dir="${sdk_dir}/lib/aarch64-rpi4-linux-gnueabi"
+      ;;
+    x86_64)
+      sdk_lib_dir="${sdk_dir}/lib/x86_64-linux-gnu"
+      ;;
+    *)
+      echo "unsupported runtime architecture: $(uname -m)" >&2
+      exit 1
+      ;;
+  esac
+
+  if [[ ! -d "${sdk_lib_dir}" ]]; then
+    echo "NDI runtime library directory not found: ${sdk_lib_dir}" >&2
+    exit 1
+  fi
+
+  install -d "${INSTALL_ROOT}/lib"
+  rsync -a "${sdk_lib_dir}/" "${INSTALL_ROOT}/lib/"
+}
+
 install_files() {
   install -d "${INSTALL_ROOT}"
   rsync -a --delete \
@@ -66,7 +98,8 @@ install_files() {
     --exclude "apps/receiver/build/CMakeFiles" \
     "${PROJECT_ROOT}/" "${INSTALL_ROOT}/"
 
-  install -d /etc/ndi-receiver /var/lib/ndi-receiver /var/log/ndi-receiver
+  install -d -m 0750 /etc/ndi-receiver /var/lib/ndi-receiver /var/log/ndi-receiver
+  copy_ndi_runtime
   if [[ ! -f /etc/ndi-receiver/config.yaml ]]; then
     install -m 0640 "${PROJECT_ROOT}/config/default.yaml" /etc/ndi-receiver/config.yaml
   fi
@@ -75,12 +108,18 @@ install_files() {
   install -m 0644 "${PROJECT_ROOT}/systemd/ndi-monitor.tmpfiles.conf" /etc/tmpfiles.d/ndi-monitor.conf
 
   systemd-tmpfiles --create /etc/tmpfiles.d/ndi-monitor.conf
-  chown -R "${SYSTEM_USER}:${SYSTEM_USER}" /var/lib/ndi-receiver /var/log/ndi-receiver
+  chown -R "${SYSTEM_USER}:${SYSTEM_USER}" /etc/ndi-receiver /var/lib/ndi-receiver /var/log/ndi-receiver
+}
+
+install_runtime_dependencies() {
+  cd "${INSTALL_ROOT}"
+  CI=1 corepack pnpm install --prod --force --ignore-scripts
 }
 
 enable_service() {
   systemctl daemon-reload
-  systemctl enable --now ndi-web.service
+  systemctl enable ndi-web.service
+  systemctl restart ndi-web.service
 }
 
 main() {
@@ -89,6 +128,7 @@ main() {
   configure_user
   build_project
   install_files
+  install_runtime_dependencies
   enable_service
   echo "ndi-monitor installed at ${INSTALL_ROOT}"
 }

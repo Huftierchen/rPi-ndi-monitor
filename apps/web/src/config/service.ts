@@ -18,7 +18,13 @@ export class ConfigService {
 
     try {
       await readFile(this.paths.configFile, "utf8");
-    } catch {
+    } catch (error) {
+      const code = typeof error === "object" && error !== null && "code" in error
+        ? String(error.code)
+        : null;
+      if (code !== "ENOENT") {
+        throw error;
+      }
       await copyFile(this.paths.defaultConfigFile, this.paths.configFile);
     }
 
