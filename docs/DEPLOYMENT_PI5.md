@@ -98,7 +98,7 @@ curl http://127.0.0.1:8080/healthz
 
 - Installation: `/opt/ndi-monitor`
 - Konfiguration: `/etc/ndi-receiver/config.yaml`
-- Status: `/var/lib/ndi-receiver/receiver-status.json`
+- Status-Snapshot: `/var/lib/ndi-receiver/receiver-status.json`
 - Logs: `/var/log/ndi-receiver/`
 
 ## Service-Umgebung
@@ -166,7 +166,7 @@ sudo PURGE=1 ./scripts/uninstall.sh
 
 1. `sudo systemctl status ndi-standby.service ndi-web.service`
 2. `sudo journalctl -u ndi-web.service -b`
-3. `cat /var/lib/ndi-receiver/receiver-status.json`
+3. `curl http://127.0.0.1:8080/api/status`
 4. `/boot/cmdline.txt` pruefen
 5. `ls /dev/dri`
 

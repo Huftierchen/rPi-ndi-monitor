@@ -13,7 +13,7 @@ Der aktuelle Stand ist produktionsnah und auf dem Zielgeraet verifiziert:
 - der Receiver laeuft als Child-Prozess des Web-Dienstes
 - HDMI-Standby-Screen ersetzt auf `tty1` den normalen Login-Prompt
 - echte NDI-Wiedergabe wurde auf diesem Pi gegen einen TouchDesigner-Stream verifiziert
-- Logs und Statusdatei werden persistent geschrieben
+- Logs werden persistent geschrieben, der Receiver-Status laeuft live ueber Prozess-Events
 
 Aktuell verifiziertes Git-Setup in diesem Repo:
 
@@ -35,7 +35,7 @@ Aktuell verifiziertes Git-Setup in diesem Repo:
 - `ndi-web.service` ist der einzige Hauptdienst
 - der Web-Dienst verwaltet den nativen Receiver als Child-Prozess
 - Discovery laeuft als separater nativer CLI-Aufruf
-- Status kommt aus nativer Statusdatei plus Live-Ereignissen
+- Status kommt primaer aus nativen Live-Ereignissen; die Statusdatei bleibt als letzter persistierter Snapshot
 - `ndi-standby.service` schreibt im Idle-Zustand den Appliance-Text auf `tty1`
 
 Mehr Details: [ARCHITECTURE.md](/home/pi/ndi-monitor/docs/ARCHITECTURE.md)
@@ -62,7 +62,7 @@ Mehr Details: [ARCHITECTURE.md](/home/pi/ndi-monitor/docs/ARCHITECTURE.md)
 ## Wichtige Laufzeitpfade
 
 - Konfiguration: `/etc/ndi-receiver/config.yaml`
-- Statusdatei: `/var/lib/ndi-receiver/receiver-status.json`
+- Status-Snapshot: `/var/lib/ndi-receiver/receiver-status.json`
 - Web-Log: `/var/log/ndi-receiver/web.log`
 - Receiver-Log: `/var/log/ndi-receiver/receiver.log`
 - Installation: `/opt/ndi-monitor`
@@ -310,7 +310,7 @@ Wichtig:
 ### Receiver ist "running", aber HDMI bleibt leer
 
 - `sudo systemctl status ndi-web.service`
-- `cat /var/lib/ndi-receiver/receiver-status.json`
+- `cat /var/lib/ndi-receiver/receiver-status.json` fuer den letzten persistierten Snapshot
 - `tail -f /var/log/ndi-receiver/receiver.log`
 - `sudo journalctl -u ndi-web.service -b`
 - pruefen, ob `/dev/dri/*` vorhanden ist

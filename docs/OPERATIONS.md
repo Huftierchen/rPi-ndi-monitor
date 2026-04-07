@@ -3,7 +3,7 @@
 ## Wichtige Dateien
 
 - Konfiguration: `/etc/ndi-receiver/config.yaml`
-- Status: `/var/lib/ndi-receiver/receiver-status.json`
+- Status-Snapshot: `/var/lib/ndi-receiver/receiver-status.json`
 - Web-Logs: `/var/log/ndi-receiver/web.log`
 - Receiver-Logs: `/var/log/ndi-receiver/receiver.log`
 
@@ -29,7 +29,7 @@ Was sie tun:
 4. Konfiguration wird geladen und validiert
 5. Discovery und UI stehen bereit
 6. bei `autoStart` oder manuellem Start wird der Receiver als Child-Prozess gestartet
-7. der Receiver schreibt Statusdatei und strukturierte Logs
+7. der Receiver sendet Live-Status-Events und schreibt strukturierte Logs
 8. bei Disconnect oder Crash greifen Reconnect und Restart
 
 ## Receiver starten und stoppen
@@ -69,6 +69,8 @@ CLI:
 curl http://127.0.0.1:8080/api/status
 cat /var/lib/ndi-receiver/receiver-status.json
 ```
+
+Die API ist die massgebliche Live-Sicht. Die JSON-Datei ist nur noch der letzte persistierte Snapshot und kann deshalb aelter sein als der API-Status.
 
 Wichtige Statusfelder:
 
