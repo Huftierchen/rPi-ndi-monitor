@@ -6,6 +6,7 @@ build/
 Testing/
 .cache/
 .DS_Store
+.codex
 
 runtime/
 apps/web/.turbo/
