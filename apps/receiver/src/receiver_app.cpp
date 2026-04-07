@@ -29,7 +29,7 @@ int ReceiverApp::Run() {
   std::string renderer_error;
   if (!renderer->Initialize(options_, &renderer_error)) {
     status_.last_error = renderer_error;
-    UpdateStatus("error", "fatal", renderer_error);
+    UpdateStatus("error", "fatal", renderer_error, true);
     logger_.Error(LogCategory::kRender, "Renderer initialization failed: " + renderer_error);
     logger_.EmitEvent("fatal-error", renderer_error, options_.source_name);
     return static_cast<int>(ExitCode::kRendererFailure);
@@ -45,7 +45,7 @@ int ReceiverApp::Run() {
   while (!stop_requested_.load()) {
     std::string connect_error;
     if (!backend->Connect(options_, &connect_error)) {
-      UpdateStatus("error", "source-not-found", connect_error);
+      UpdateStatus("error", "source-not-found", connect_error, true);
       logger_.Warn(LogCategory::kNdi, connect_error);
       logger_.EmitEvent("source-missing", connect_error, options_.source_name);
 
@@ -68,7 +68,7 @@ int ReceiverApp::Run() {
     }
 
     reconnect_attempt = 0;
-    UpdateStatus("running", "connected");
+    UpdateStatus("running", "connected", "", true);
     logger_.Info(LogCategory::kNdi, "Connected to source '" + options_.source_name + "'");
     logger_.EmitEvent("source-found", "", options_.source_name);
     logger_.EmitEvent("connected", "", options_.source_name);
@@ -82,7 +82,7 @@ int ReceiverApp::Run() {
         continue;
       }
       if (result.kind == PollResultKind::kFatal) {
-        UpdateStatus("error", "fatal", result.message);
+        UpdateStatus("error", "fatal", result.message, true);
         logger_.Error(LogCategory::kError, result.message);
         logger_.EmitEvent("fatal-error", result.message, options_.source_name);
         backend->Disconnect();
@@ -90,7 +90,7 @@ int ReceiverApp::Run() {
         return static_cast<int>(ExitCode::kReceiveFailure);
       }
       if (result.kind == PollResultKind::kDisconnected) {
-        UpdateStatus("error", "disconnected", result.message);
+        UpdateStatus("error", "disconnected", result.message, true);
         logger_.Warn(LogCategory::kNdi, result.message);
         logger_.EmitEvent("disconnected", result.message, options_.source_name);
         backend->Disconnect();
@@ -145,19 +145,41 @@ int ReceiverApp::Run() {
     SleepWithStop(options_.reconnect_initial_delay_ms);
   }
 
-  UpdateStatus("stopped", "idle");
+  UpdateStatus("stopped", "idle", "", true);
   renderer->Shutdown();
   logger_.Info(LogCategory::kStartup, "Receiver stopped");
   return static_cast<int>(ExitCode::kOk);
 }
 
 void ReceiverApp::UpdateStatus(const std::string& lifecycle, const std::string& connection_state,
-                               const std::string& error_message) {
+                               const std::string& error_message, bool force_write) {
   status_.lifecycle = lifecycle;
   status_.connection_state = connection_state;
   status_.last_error = error_message;
   status_.updated_at = now_iso8601();
+
+  const auto now = std::chrono::steady_clock::now();
+  const bool interval_elapsed =
+      !has_written_status_ ||
+      std::chrono::duration_cast<std::chrono::milliseconds>(now - last_status_write_at_).count() >=
+          500;
+  const bool important_change =
+      !has_written_status_ || force_write || status_.lifecycle != last_written_status_.lifecycle ||
+      status_.connection_state != last_written_status_.connection_state ||
+      status_.last_error != last_written_status_.last_error ||
+      status_.source_name != last_written_status_.source_name ||
+      status_.video_active != last_written_status_.video_active ||
+      status_.audio_active != last_written_status_.audio_active ||
+      status_.resolution != last_written_status_.resolution;
+
+  if (!important_change && !interval_elapsed) {
+    return;
+  }
+
   status_writer_.Write(status_);
+  last_written_status_ = status_;
+  last_status_write_at_ = now;
+  has_written_status_ = true;
 }
 
 void ReceiverApp::SleepWithStop(int delay_ms) const {
