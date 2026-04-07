@@ -18,7 +18,7 @@ sudo systemctl status getty@tty1.service
 Was sie tun:
 
 - `ndi-web.service`: Web-Control-Plane, API, UI, Supervisor fuer den nativen Receiver
-- `ndi-standby.service`: schreibt den Idle-/Standby-Text auf `tty1`
+- `ndi-standby.service`: schreibt beim Boot den Idle-/Standby-Screen auf `tty1`
 - `getty@tty1.service`: sollte im Appliance-Betrieb deaktiviert sein
 
 ## Typischer Betriebsablauf
@@ -31,6 +31,16 @@ Was sie tun:
 6. bei `autoStart` oder manuellem Start wird der Receiver als Child-Prozess gestartet
 7. der Receiver sendet Live-Status-Events und schreibt strukturierte Logs
 8. bei Disconnect oder Crash greifen Reconnect und Restart
+
+Der Standby-Screen zeigt:
+
+- Web-UI-URL
+- QR-Code fuer die Web-UI
+- Hostname und Bonjour-Name
+- aktuelle IP-Adresse
+- konfigurierte Quelle
+
+Nach `Stop` oder Receiver-Exit zeichnet der Web-Supervisor denselben Screen erneut.
 
 ## Receiver starten und stoppen
 

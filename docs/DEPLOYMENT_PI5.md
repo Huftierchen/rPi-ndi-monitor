@@ -32,7 +32,7 @@ Wichtig:
 sudo apt-get update
 sudo apt-get install -y \
   git rsync curl ca-certificates build-essential cmake pkg-config \
-  libsdl2-dev libasound2-dev ripgrep avahi-daemon
+  libsdl2-dev libasound2-dev ripgrep avahi-daemon qrencode
 ```
 
 Optional, aber auf dem Pi nuetzlich:
@@ -73,7 +73,7 @@ sudo reboot
 
 Erwartetes Verhalten:
 
-- auf HDMI erscheint ein Standby-Screen mit der Web-UI-Adresse
+- auf HDMI erscheint ein Standby-Screen mit Web-UI-URL, Hostname, IP und QR-Code
 - `ndi-web.service` ist aktiv
 - `getty@tty1.service` ist deaktiviert
 - die Web-UI ist unter `http://<pi-ip>:8080/` erreichbar
