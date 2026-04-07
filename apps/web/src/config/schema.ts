@@ -12,6 +12,7 @@ export const appConfigSchema = z.object({
     audioEnabled: z.boolean(),
     scaleMode: z.enum(scaleModes),
     bandwidthMode: z.enum(bandwidthModes).default("highest"),
+    outputFpsCap: z.number().int().min(0).max(120).default(0),
     autoStart: z.boolean(),
     reconnect: z.object({
       enabled: z.boolean(),

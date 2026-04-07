@@ -11,6 +11,7 @@ const config: AppConfig = {
     audioEnabled: true,
     scaleMode: "contain",
     bandwidthMode: "highest",
+    outputFpsCap: 0,
     autoStart: false,
     reconnect: {
       enabled: true,
@@ -45,6 +46,10 @@ test("mergeStatusFile overlays runtime fields from the receiver", () => {
     audioActive: false,
     resolution: "1920x1080",
     fps: 50,
+    droppedVideoFrames: 2,
+    droppedAudioFrames: 0,
+    videoQueueDepth: 1,
+    audioQueueDepth: 0,
     startedAt: "2026-04-07T18:00:00.000Z",
     uptimeSeconds: 12,
     lastError: null,
@@ -55,4 +60,5 @@ test("mergeStatusFile overlays runtime fields from the receiver", () => {
   assert.equal(merged.lifecycle, "running");
   assert.equal(merged.resolution, "1920x1080");
   assert.equal(merged.videoActive, true);
+  assert.equal(merged.droppedVideoFrames, 2);
 });

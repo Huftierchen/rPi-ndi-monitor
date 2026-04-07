@@ -26,6 +26,7 @@ struct RunOptions {
   LogLevel log_level = LogLevel::kInfo;
   ScaleMode scale_mode = ScaleMode::kContain;
   BandwidthMode bandwidth_mode = BandwidthMode::kHighest;
+  int output_fps_cap = 0;
   std::string status_file;
   bool json_logs = false;
   bool fullscreen = true;

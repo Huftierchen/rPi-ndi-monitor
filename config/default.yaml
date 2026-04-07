@@ -7,6 +7,7 @@ receiver:
   audioEnabled: false
   scaleMode: contain
   bandwidthMode: highest
+  outputFpsCap: 0
   autoStart: false
   reconnect:
     enabled: true

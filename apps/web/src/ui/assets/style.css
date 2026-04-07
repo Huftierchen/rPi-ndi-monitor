@@ -303,6 +303,10 @@ input[type="checkbox"] {
   font-size: 1rem;
 }
 
+.source-facts {
+  line-height: 1.35;
+}
+
 .source-copy small,
 .source-meta,
 .source-empty {

@@ -68,6 +68,9 @@ function statusGrid(status: ReceiverRuntimeStatus): string {
     },
     { key: "resolution", label: "Resolution", value: status.resolution },
     { key: "fps", label: "FPS", value: status.fps },
+    { key: "dropped-video", label: "Dropped video", value: status.droppedVideoFrames },
+    { key: "video-queue", label: "Video queue", value: status.videoQueueDepth },
+    { key: "audio-queue", label: "Audio queue", value: status.audioQueueDepth },
     { key: "uptime-s", label: "Uptime (s)", value: status.uptimeSeconds },
     { key: "last-error", label: "Last error", value: status.lastError },
     { key: "restart-count", label: "Restart count", value: status.restartCount }
@@ -122,6 +125,16 @@ function renderSourceRows(snapshot: DiscoverySnapshot | null, currentSource: str
         <span class="source-copy">
           <strong>${e(source.name)}</strong>
           <small>${e(source.address ?? "n/a")}</small>
+          <small class="source-facts">
+            ${e(source.resolution || "resolution n/a")}
+            ${source.fps ? ` • ${e(source.fps.toFixed(2))} fps` : ""}
+            ${source.connectionCount !== null && source.connectionCount !== undefined ? ` • ${e(String(source.connectionCount))} connections` : ""}
+          </small>
+          ${
+            source.webControlUrl
+              ? `<small><a href="${e(source.webControlUrl)}" target="_blank" rel="noreferrer">Source web control</a></small>`
+              : ""
+          }
         </span>
         <span class="source-meta">${e(source.groups?.join(", ") || "LAN source")}</span>
       </label>`;
@@ -173,6 +186,9 @@ function settingsForm(config: AppConfig): string {
             <label><span>Audio over HDMI</span><input type="checkbox" name="receiver.audioEnabled" ${
               config.receiver.audioEnabled ? "checked" : ""
             } /></label>
+            <label><span>Output FPS cap</span><input type="number" min="0" max="120" name="receiver.outputFpsCap" value="${
+              config.receiver.outputFpsCap
+            }" /></label>
             <label><span>Start automatically after boot</span><input type="checkbox" name="receiver.autoStart" ${
               config.receiver.autoStart ? "checked" : ""
             } /></label>
@@ -256,6 +272,7 @@ function settingsForm(config: AppConfig): string {
         <button type="submit">Save settings</button>
       </div>
       <p class="hint">On Raspberry Pi 4, the easiest performance wins are usually disabling HDMI audio and switching NDI bandwidth mode to lowest for heavy Full-HD senders.</p>
+      <p class="hint">Set output FPS cap to 0 for unlimited rendering. Values like 30 can reduce renderer work, but sender-side 30 fps is still better because the stream itself will otherwise continue to arrive at 60 fps.</p>
     </form>
   </section>`;
 }
@@ -308,6 +325,10 @@ export function renderDashboardPage(status: ReceiverRuntimeStatus, config: AppCo
             <strong>${e(config.receiver.bandwidthMode)}</strong>
           </div>
           <div class="info-card">
+            <span class="label">Output FPS cap</span>
+            <strong>${config.receiver.outputFpsCap > 0 ? e(String(config.receiver.outputFpsCap)) : "unlimited"}</strong>
+          </div>
+          <div class="info-card">
             <span class="label">Audio over HDMI</span>
             <strong>${config.receiver.audioEnabled ? "enabled" : "disabled"}</strong>
           </div>
@@ -341,6 +362,7 @@ export function renderSourcesPage(
           </div>
         </div>
         <p class="hint">Discovery runs in a short native helper process. It does not interrupt an already running HDMI output.</p>
+        <p class="hint">When possible, source cards also include a short probe for current resolution, FPS and sender web-control URL.</p>
         <p class="hint">Configured source: <strong id="configured-source-label">${e(
           config.receiver.sourceName || "none"
         )}</strong></p>
