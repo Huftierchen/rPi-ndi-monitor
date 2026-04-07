@@ -72,7 +72,9 @@ class NdiSdkBackend final : public INdiBackend {
 
     NDIlib_recv_create_v3_t recv_desc = NDIlib_recv_create_v3_t();
     recv_desc.color_format = NDIlib_recv_color_format_RGBX_RGBA;
-    recv_desc.bandwidth = NDIlib_recv_bandwidth_highest;
+    recv_desc.bandwidth = options.bandwidth_mode == BandwidthMode::kLowest
+                              ? NDIlib_recv_bandwidth_lowest
+                              : NDIlib_recv_bandwidth_highest;
     recv_desc.allow_video_fields = false;
     receiver_instance_ = NDIlib_recv_create_v3(&recv_desc);
     if (receiver_instance_ == nullptr) {
@@ -117,15 +119,14 @@ class NdiSdkBackend final : public INdiBackend {
                         ? static_cast<double>(video_frame.frame_rate_N) /
                               static_cast<double>(video_frame.frame_rate_D)
                         : 0.0;
-        const std::size_t bytes_per_row = static_cast<std::size_t>(frame.width * 4);
-        frame.rgba.resize(static_cast<std::size_t>(frame.width * frame.height * 4));
-        for (int row = 0; row < frame.height; ++row) {
-          const auto* source = static_cast<const std::uint8_t*>(video_frame.p_data) +
-                               row * video_frame.line_stride_in_bytes;
-          auto* destination = frame.rgba.data() + static_cast<std::size_t>(row) * bytes_per_row;
-          std::memcpy(destination, source, bytes_per_row);
-        }
-        NDIlib_recv_free_video_v2(receiver_instance_, &video_frame);
+        frame.stride_bytes = video_frame.line_stride_in_bytes;
+        frame.pixels = static_cast<const std::uint8_t*>(video_frame.p_data);
+        frame.release = [instance = receiver_instance_, video_frame]() mutable {
+          if (instance != nullptr && video_frame.p_data != nullptr) {
+            NDIlib_recv_free_video_v2(instance, &video_frame);
+            video_frame.p_data = nullptr;
+          }
+        };
         PollResult result;
         result.kind = PollResultKind::kFrame;
         result.frame = std::move(frame);

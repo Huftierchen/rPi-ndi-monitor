@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { logLevels, scaleModes, type AppConfig } from "../types.js";
+import { bandwidthModes, logLevels, scaleModes, type AppConfig } from "../types.js";
 
 export const appConfigSchema = z.object({
   server: z.object({
@@ -11,6 +11,7 @@ export const appConfigSchema = z.object({
     sourceName: z.string(),
     audioEnabled: z.boolean(),
     scaleMode: z.enum(scaleModes),
+    bandwidthMode: z.enum(bandwidthModes).default("highest"),
     autoStart: z.boolean(),
     reconnect: z.object({
       enabled: z.boolean(),

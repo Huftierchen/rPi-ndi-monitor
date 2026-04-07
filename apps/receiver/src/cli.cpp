@@ -24,6 +24,12 @@ ScaleMode parse_scale_mode(const std::string& value) {
   throw std::invalid_argument("Unsupported scale mode: " + value);
 }
 
+BandwidthMode parse_bandwidth_mode(const std::string& value) {
+  if (value == "highest") return BandwidthMode::kHighest;
+  if (value == "lowest") return BandwidthMode::kLowest;
+  throw std::invalid_argument("Unsupported bandwidth mode: " + value);
+}
+
 bool parse_enabled_flag(const std::string& value) {
   if (value == "enabled" || value == "true") return true;
   if (value == "disabled" || value == "false") return false;
@@ -59,6 +65,8 @@ CliOptions parse_cli(int argc, char** argv) {
         options.run.log_level = parse_log_level(require_value(argc, argv, index));
       } else if (is_flag(argument, "--scale-mode")) {
         options.run.scale_mode = parse_scale_mode(require_value(argc, argv, index));
+      } else if (is_flag(argument, "--bandwidth-mode")) {
+        options.run.bandwidth_mode = parse_bandwidth_mode(require_value(argc, argv, index));
       } else if (is_flag(argument, "--status-file")) {
         options.run.status_file = require_value(argc, argv, index);
       } else if (is_flag(argument, "--json-logs")) {
@@ -130,6 +138,7 @@ Run options:
   --audio enabled|disabled
   --log-level trace|debug|info|warn|error
   --scale-mode contain|cover|stretch
+  --bandwidth-mode highest|lowest
   --json-logs
   --fullscreen enabled|disabled
   --hdmi-output-hint VALUE
@@ -167,6 +176,16 @@ std::string to_string(ScaleMode mode) {
       return "stretch";
   }
   return "contain";
+}
+
+std::string to_string(BandwidthMode mode) {
+  switch (mode) {
+    case BandwidthMode::kHighest:
+      return "highest";
+    case BandwidthMode::kLowest:
+      return "lowest";
+  }
+  return "highest";
 }
 
 }  // namespace ndi_receiver

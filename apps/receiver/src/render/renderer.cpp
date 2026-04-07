@@ -75,6 +75,10 @@ class SdlRenderer final : public IRenderer {
     if (renderer_ == nullptr) {
       return;
     }
+    const auto* pixels = frame.Data();
+    if (pixels == nullptr || frame.stride_bytes <= 0) {
+      return;
+    }
 
     if (texture_ == nullptr || frame.width != frame_width_ || frame.height != frame_height_) {
       if (texture_ != nullptr) {
@@ -84,9 +88,12 @@ class SdlRenderer final : public IRenderer {
                                    frame.width, frame.height);
       frame_width_ = frame.width;
       frame_height_ = frame.height;
+      if (texture_ == nullptr) {
+        return;
+      }
     }
 
-    SDL_UpdateTexture(texture_, nullptr, frame.rgba.data(), frame.width * 4);
+    SDL_UpdateTexture(texture_, nullptr, pixels, frame.stride_bytes);
     int target_width = 0;
     int target_height = 0;
     SDL_GetRendererOutputSize(renderer_, &target_width, &target_height);

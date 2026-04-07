@@ -66,21 +66,23 @@ class StubNdiBackend final : public INdiBackend {
     frame.width = 1280;
     frame.height = 720;
     frame.fps = 30.0;
-    frame.rgba.resize(static_cast<std::size_t>(frame.width * frame.height * 4));
+    frame.stride_bytes = frame.width * 4;
+    frame.owned_rgba.resize(static_cast<std::size_t>(frame.width * frame.height * 4));
 
     for (int y = 0; y < frame.height; ++y) {
       for (int x = 0; x < frame.width; ++x) {
         const int index = (y * frame.width + x) * 4;
         const double phase = (static_cast<double>(frame_index_) / 10.0);
-        frame.rgba[static_cast<std::size_t>(index)] =
+        frame.owned_rgba[static_cast<std::size_t>(index)] =
             static_cast<std::uint8_t>((std::sin((x / 40.0) + phase) + 1.0) * 127.0);
-        frame.rgba[static_cast<std::size_t>(index + 1)] =
+        frame.owned_rgba[static_cast<std::size_t>(index + 1)] =
             static_cast<std::uint8_t>((std::sin((y / 34.0) + phase) + 1.0) * 127.0);
-        frame.rgba[static_cast<std::size_t>(index + 2)] =
+        frame.owned_rgba[static_cast<std::size_t>(index + 2)] =
             static_cast<std::uint8_t>((std::sin(((x + y) / 55.0) + phase) + 1.0) * 127.0);
-        frame.rgba[static_cast<std::size_t>(index + 3)] = 255;
+        frame.owned_rgba[static_cast<std::size_t>(index + 3)] = 255;
       }
     }
+    frame.pixels = frame.owned_rgba.data();
 
     ++frame_index_;
     return {.kind = PollResultKind::kFrame, .frame = std::move(frame), .audio_active = false};
