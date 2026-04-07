@@ -40,6 +40,50 @@ int clamp_i64_to_int(std::int64_t value) {
   return static_cast<int>(value);
 }
 
+NDIlib_recv_color_format_e to_ndi_color_format(ColorFormat format) {
+  switch (format) {
+    case ColorFormat::kRgba:
+      return NDIlib_recv_color_format_RGBX_RGBA;
+    case ColorFormat::kUyvy:
+      return NDIlib_recv_color_format_UYVY_RGBA;
+    case ColorFormat::kFastest:
+      return NDIlib_recv_color_format_fastest;
+  }
+  return NDIlib_recv_color_format_fastest;
+}
+
+VideoPixelFormat to_video_pixel_format(NDIlib_FourCC_video_type_e fourcc) {
+  switch (fourcc) {
+    case NDIlib_FourCC_video_type_RGBA:
+      return VideoPixelFormat::kRgba;
+    case NDIlib_FourCC_video_type_RGBX:
+      return VideoPixelFormat::kRgbx;
+    case NDIlib_FourCC_video_type_BGRA:
+      return VideoPixelFormat::kBgra;
+    case NDIlib_FourCC_video_type_BGRX:
+      return VideoPixelFormat::kBgrx;
+    case NDIlib_FourCC_video_type_UYVY:
+    case NDIlib_FourCC_video_type_UYVA:
+      return VideoPixelFormat::kUyvy;
+    default:
+      return VideoPixelFormat::kRgba;
+  }
+}
+
+bool supports_video_fourcc(NDIlib_FourCC_video_type_e fourcc) {
+  switch (fourcc) {
+    case NDIlib_FourCC_video_type_RGBA:
+    case NDIlib_FourCC_video_type_RGBX:
+    case NDIlib_FourCC_video_type_BGRA:
+    case NDIlib_FourCC_video_type_BGRX:
+    case NDIlib_FourCC_video_type_UYVY:
+    case NDIlib_FourCC_video_type_UYVA:
+      return true;
+    default:
+      return false;
+  }
+}
+
 class NdiSdkBackend final : public INdiBackend {
  public:
   NdiSdkBackend() { NDIlib_initialize(); }
@@ -79,7 +123,7 @@ class NdiSdkBackend final : public INdiBackend {
     }
 
     NDIlib_recv_create_v3_t recv_desc = NDIlib_recv_create_v3_t();
-    recv_desc.color_format = NDIlib_recv_color_format_RGBX_RGBA;
+    recv_desc.color_format = to_ndi_color_format(options.color_format);
     recv_desc.bandwidth = options.bandwidth_mode == BandwidthMode::kLowest
                               ? NDIlib_recv_bandwidth_lowest
                               : NDIlib_recv_bandwidth_highest;
@@ -97,6 +141,7 @@ class NdiSdkBackend final : public INdiBackend {
     source_desc.p_url_address = nullptr;
     NDIlib_recv_connect(receiver_instance_, &source_desc);
     audio_enabled_ = options.audio_enabled;
+    low_latency_mode_ = options.low_latency_mode;
 
     if (audio_enabled_) {
       StartAudioOutput();
@@ -120,6 +165,16 @@ class NdiSdkBackend final : public INdiBackend {
     switch (NDIlib_recv_capture_v3(receiver_instance_, &video_frame, &audio_frame, &metadata_frame,
                                    timeout_ms)) {
       case NDIlib_frame_type_video: {
+        if (low_latency_mode_) {
+          DrainToLatestVideoFrame(&video_frame);
+        }
+        if (!supports_video_fourcc(video_frame.FourCC)) {
+          NDIlib_recv_free_video_v2(receiver_instance_, &video_frame);
+          return PollResult{
+              .kind = PollResultKind::kFatal,
+              .message = "NDI receiver delivered an unsupported pixel format for the current renderer",
+              .audio_active = audio_active_.load()};
+        }
         VideoFrame frame;
         frame.width = video_frame.xres;
         frame.height = video_frame.yres;
@@ -128,6 +183,7 @@ class NdiSdkBackend final : public INdiBackend {
                               static_cast<double>(video_frame.frame_rate_D)
                         : 0.0;
         frame.stride_bytes = video_frame.line_stride_in_bytes;
+        frame.pixel_format = to_video_pixel_format(video_frame.FourCC);
         frame.pixels = static_cast<const std::uint8_t*>(video_frame.p_data);
         frame.release = [instance = receiver_instance_, video_frame]() mutable {
           if (instance != nullptr && video_frame.p_data != nullptr) {
@@ -188,6 +244,7 @@ class NdiSdkBackend final : public INdiBackend {
       receiver_instance_ = nullptr;
     }
     audio_enabled_ = false;
+    low_latency_mode_ = false;
     audio_active_.store(false);
   }
 
@@ -279,6 +336,38 @@ class NdiSdkBackend final : public INdiBackend {
     }
 
     NDIlib_recv_destroy(probe_instance);
+  }
+
+  void DrainToLatestVideoFrame(NDIlib_video_frame_v2_t* current_frame) {
+    if (receiver_instance_ == nullptr || current_frame == nullptr) {
+      return;
+    }
+
+    while (true) {
+      NDIlib_video_frame_v2_t next_video {};
+      NDIlib_audio_frame_v3_t next_audio {};
+      NDIlib_metadata_frame_t next_metadata {};
+
+      switch (NDIlib_recv_capture_v3(receiver_instance_, &next_video, &next_audio, &next_metadata,
+                                     0)) {
+        case NDIlib_frame_type_video:
+          NDIlib_recv_free_video_v2(receiver_instance_, current_frame);
+          *current_frame = next_video;
+          break;
+        case NDIlib_frame_type_audio:
+          NDIlib_recv_free_audio_v3(receiver_instance_, &next_audio);
+          break;
+        case NDIlib_frame_type_metadata:
+          NDIlib_recv_free_metadata(receiver_instance_, &next_metadata);
+          break;
+        case NDIlib_frame_type_none:
+        case NDIlib_frame_type_status_change:
+        case NDIlib_frame_type_source_change:
+        case NDIlib_frame_type_error:
+        default:
+          return;
+      }
+    }
   }
 
   static void AudioCallback(void* userdata, Uint8* stream, int length) {
@@ -390,6 +479,7 @@ class NdiSdkBackend final : public INdiBackend {
   NDIlib_recv_instance_t receiver_instance_ = nullptr;
   NDIlib_framesync_instance_t framesync_instance_ = nullptr;
   bool audio_enabled_ = false;
+  bool low_latency_mode_ = true;
   std::atomic<bool> audio_active_ = false;
 #ifdef HAVE_SDL2
   SDL_AudioDeviceID audio_device_ = 0;

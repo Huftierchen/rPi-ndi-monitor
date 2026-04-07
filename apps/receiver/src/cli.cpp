@@ -30,6 +30,13 @@ BandwidthMode parse_bandwidth_mode(const std::string& value) {
   throw std::invalid_argument("Unsupported bandwidth mode: " + value);
 }
 
+ColorFormat parse_color_format(const std::string& value) {
+  if (value == "rgba") return ColorFormat::kRgba;
+  if (value == "uyvy") return ColorFormat::kUyvy;
+  if (value == "fastest") return ColorFormat::kFastest;
+  throw std::invalid_argument("Unsupported color format: " + value);
+}
+
 bool parse_enabled_flag(const std::string& value) {
   if (value == "enabled" || value == "true") return true;
   if (value == "disabled" || value == "false") return false;
@@ -67,8 +74,12 @@ CliOptions parse_cli(int argc, char** argv) {
         options.run.scale_mode = parse_scale_mode(require_value(argc, argv, index));
       } else if (is_flag(argument, "--bandwidth-mode")) {
         options.run.bandwidth_mode = parse_bandwidth_mode(require_value(argc, argv, index));
+      } else if (is_flag(argument, "--color-format")) {
+        options.run.color_format = parse_color_format(require_value(argc, argv, index));
       } else if (is_flag(argument, "--output-fps-cap")) {
         options.run.output_fps_cap = std::stoi(require_value(argc, argv, index));
+      } else if (is_flag(argument, "--low-latency-mode")) {
+        options.run.low_latency_mode = parse_enabled_flag(require_value(argc, argv, index));
       } else if (is_flag(argument, "--status-file")) {
         options.run.status_file = require_value(argc, argv, index);
       } else if (is_flag(argument, "--json-logs")) {
@@ -141,7 +152,9 @@ Run options:
   --log-level trace|debug|info|warn|error
   --scale-mode contain|cover|stretch
   --bandwidth-mode highest|lowest
+  --color-format rgba|uyvy|fastest
   --output-fps-cap VALUE
+  --low-latency-mode enabled|disabled
   --json-logs
   --fullscreen enabled|disabled
   --hdmi-output-hint VALUE
@@ -189,6 +202,18 @@ std::string to_string(BandwidthMode mode) {
       return "lowest";
   }
   return "highest";
+}
+
+std::string to_string(ColorFormat format) {
+  switch (format) {
+    case ColorFormat::kRgba:
+      return "rgba";
+    case ColorFormat::kUyvy:
+      return "uyvy";
+    case ColorFormat::kFastest:
+      return "fastest";
+  }
+  return "fastest";
 }
 
 }  // namespace ndi_receiver

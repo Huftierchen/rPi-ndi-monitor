@@ -115,6 +115,12 @@ Der Receiver ist in klar getrennte Bausteine zerlegt:
 - Renderer-Schnittstelle fuer SDL2/KMSDRM beziehungsweise Headless-Stub
 - `ReceiverApp` fuer Signal-Handling, Reconnect-Loop und Exit-Codes
 
+Fuer die Pi-Laufzeitperformance nutzt der aktuelle Receiver zusaetzlich:
+
+- konfigurierbare NDI-Farbformate (`rgba`, `uyvy`, `fastest`)
+- Renderer-Texturen passend zum echten eingehenden Pixel-Layout
+- optionalen Low-Latency-Modus, der gepufferte Videoframes bis zum neuesten Stand entleert
+
 Diese Struktur erlaubt lokale Tests ohne echtes SDK, ohne die Produktionsschnittstelle zu verbiegen.
 
 ## Appliance-Verhalten auf HDMI

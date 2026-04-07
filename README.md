@@ -185,7 +185,11 @@ Einstellbar sind aktuell:
 - `receiver.sourceName`
 - `receiver.audioEnabled`
 - `receiver.scaleMode`
+- `receiver.bandwidthMode`
+- `receiver.colorFormat`
 - `receiver.autoStart`
+- `receiver.outputFpsCap`
+- `receiver.lowLatencyMode`
 - `receiver.reconnect.enabled`
 - `receiver.reconnect.initialDelayMs`
 - `receiver.reconnect.maxDelayMs`
@@ -203,6 +207,15 @@ Einstellbar sind aktuell:
 - zeigt Web-Logs
 - zeigt Receiver-Logs
 - bietet Download der Logdateien
+
+### Performance-Hinweis
+
+Fuer Raspberry Pi 4 sind aktuell die wichtigsten Kombinationen:
+
+- `receiver.colorFormat: fastest` oder `uyvy`
+- `receiver.lowLatencyMode: true`
+- `receiver.audioEnabled: false`, falls Audio nicht gebraucht wird
+- senderseitig lieber `1080p30` als `1080p60`
 
 ## REST-API
 

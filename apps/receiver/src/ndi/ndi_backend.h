@@ -21,11 +21,14 @@ struct NdiSource {
   std::string web_control_url;
 };
 
+enum class VideoPixelFormat { kRgba, kRgbx, kBgra, kBgrx, kUyvy };
+
 struct VideoFrame {
   int width = 0;
   int height = 0;
   double fps = 0.0;
   int stride_bytes = 0;
+  VideoPixelFormat pixel_format = VideoPixelFormat::kRgba;
   const std::uint8_t* pixels = nullptr;
   std::vector<std::uint8_t> owned_rgba;
   std::function<void()> release;

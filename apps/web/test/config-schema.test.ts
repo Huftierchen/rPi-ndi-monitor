@@ -14,7 +14,9 @@ const baseConfig: AppConfig = {
     audioEnabled: false,
     scaleMode: "contain",
     bandwidthMode: "highest",
+    colorFormat: "fastest",
     outputFpsCap: 0,
+    lowLatencyMode: true,
     autoStart: true,
     reconnect: {
       enabled: true,
@@ -40,6 +42,7 @@ const baseConfig: AppConfig = {
 
 test("validateConfig accepts a valid configuration", () => {
   assert.equal(validateConfig(baseConfig).receiver.sourceName, "Studio");
+  assert.equal(validateConfig(baseConfig).receiver.colorFormat, "fastest");
 });
 
 test("mergeConfig updates nested reconnect values", () => {
@@ -72,4 +75,18 @@ test("validateConfig rejects invalid reconnect timing", () => {
       }
     });
   });
+});
+
+test("validateConfig fills new receiver performance defaults", () => {
+  const parsed = validateConfig({
+    ...baseConfig,
+    receiver: {
+      ...baseConfig.receiver,
+      colorFormat: undefined,
+      lowLatencyMode: undefined
+    }
+  });
+
+  assert.equal(parsed.receiver.colorFormat, "fastest");
+  assert.equal(parsed.receiver.lowLatencyMode, true);
 });

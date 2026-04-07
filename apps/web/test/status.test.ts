@@ -11,7 +11,9 @@ const config: AppConfig = {
     audioEnabled: true,
     scaleMode: "contain",
     bandwidthMode: "highest",
+    colorFormat: "fastest",
     outputFpsCap: 0,
+    lowLatencyMode: true,
     autoStart: false,
     reconnect: {
       enabled: true,

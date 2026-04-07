@@ -1,5 +1,6 @@
 import {
   bandwidthModes,
+  colorFormats,
   logLevels,
   scaleModes,
   type AppConfig,
@@ -38,6 +39,19 @@ function bandwidthModeLabel(mode: AppConfig["receiver"]["bandwidthMode"]): strin
       return "Lowest";
     default:
       return mode;
+  }
+}
+
+function colorFormatLabel(format: AppConfig["receiver"]["colorFormat"]): string {
+  switch (format) {
+    case "fastest":
+      return "Fastest";
+    case "uyvy":
+      return "UYVY";
+    case "rgba":
+      return "RGBA";
+    default:
+      return format;
   }
 }
 
@@ -183,12 +197,29 @@ function settingsForm(config: AppConfig): string {
               </select>
             </label>
             <p class="hint">Bandwidth mode: highest requests the full stream, lowest requests a reduced-bandwidth stream and is usually the safer choice on Raspberry Pi 4.</p>
+            <label><span>Receiver color format</span>
+              <select name="receiver.colorFormat">
+                ${colorFormats
+                  .map(
+                    (format) =>
+                      `<option value="${format}" ${config.receiver.colorFormat === format ? "selected" : ""}>${colorFormatLabel(
+                        format
+                      )}</option>`
+                  )
+                  .join("")}
+              </select>
+            </label>
+            <p class="hint">Color format: fastest lets the NDI SDK choose the cheapest pixel path, UYVY usually reduces CPU cost on Raspberry Pi, RGBA is the compatibility fallback.</p>
             <label><span>Audio over HDMI</span><input type="checkbox" name="receiver.audioEnabled" ${
               config.receiver.audioEnabled ? "checked" : ""
             } /></label>
             <label><span>Output FPS cap</span><input type="number" min="0" max="120" name="receiver.outputFpsCap" value="${
               config.receiver.outputFpsCap
             }" /></label>
+            <label><span>Low latency mode</span><input type="checkbox" name="receiver.lowLatencyMode" ${
+              config.receiver.lowLatencyMode ? "checked" : ""
+            } /></label>
+            <p class="hint">Low latency mode drains queued NDI video frames and renders the newest one, which usually feels smoother on slower Raspberry Pi hardware.</p>
             <label><span>Start automatically after boot</span><input type="checkbox" name="receiver.autoStart" ${
               config.receiver.autoStart ? "checked" : ""
             } /></label>
@@ -273,6 +304,7 @@ function settingsForm(config: AppConfig): string {
       </div>
       <p class="hint">On Raspberry Pi 4, the easiest performance wins are usually disabling HDMI audio and switching NDI bandwidth mode to lowest for heavy Full-HD senders.</p>
       <p class="hint">Set output FPS cap to 0 for unlimited rendering. Values like 30 can reduce renderer work, but sender-side 30 fps is still better because the stream itself will otherwise continue to arrive at 60 fps.</p>
+      <p class="hint">For Pi hardware, the next best knobs are usually fastest or UYVY color format plus low latency mode.</p>
     </form>
   </section>`;
 }
@@ -325,8 +357,16 @@ export function renderDashboardPage(status: ReceiverRuntimeStatus, config: AppCo
             <strong>${e(config.receiver.bandwidthMode)}</strong>
           </div>
           <div class="info-card">
+            <span class="label">Receiver color</span>
+            <strong>${e(config.receiver.colorFormat)}</strong>
+          </div>
+          <div class="info-card">
             <span class="label">Output FPS cap</span>
             <strong>${config.receiver.outputFpsCap > 0 ? e(String(config.receiver.outputFpsCap)) : "unlimited"}</strong>
+          </div>
+          <div class="info-card">
+            <span class="label">Low latency</span>
+            <strong>${config.receiver.lowLatencyMode ? "enabled" : "disabled"}</strong>
           </div>
           <div class="info-card">
             <span class="label">Audio over HDMI</span>
@@ -421,6 +461,14 @@ export function renderAboutPage(config: AppConfig): string {
           <div class="info-card">
             <span class="label">NDI bandwidth</span>
             <strong>${e(config.receiver.bandwidthMode)}</strong>
+          </div>
+          <div class="info-card">
+            <span class="label">Receiver color</span>
+            <strong>${e(config.receiver.colorFormat)}</strong>
+          </div>
+          <div class="info-card">
+            <span class="label">Low latency</span>
+            <strong>${config.receiver.lowLatencyMode ? "enabled" : "disabled"}</strong>
           </div>
           <div class="info-card">
             <span class="label">Video path</span>

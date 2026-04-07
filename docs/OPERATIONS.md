@@ -143,12 +143,21 @@ Nach Speichern ueber die Web-UI wird:
 - `receiver.autoStart: true`
 - `receiver.reconnect.enabled: true`
 - `receiver.scaleMode: contain` oder `cover`
+- `receiver.colorFormat: fastest`
+- `receiver.lowLatencyMode: true`
 - `logging.level: info`
 - `display.fullscreen: true`
 
 ### Wenn Audio Probleme macht
 
 - `receiver.audioEnabled: false`
+
+### Wenn Full-HD auf dem Pi 4 zu schwer wird
+
+- `receiver.colorFormat: fastest` oder `uyvy`
+- `receiver.lowLatencyMode: true`
+- `receiver.outputFpsCap: 30`
+- senderseitig nach Moeglichkeit auf `30 fps` reduzieren
 
 ### Wenn eine Quelle langsam wieder auftaucht
 
