@@ -49,7 +49,15 @@ export async function registerRoutes(app: FastifyInstance, context: RouteContext
   });
 
   app.get("/sources", async (_request, reply) => {
-    reply.type("text/html").send(renderSourcesPage(supervisor.getStatus(), supervisor.getDiscoverySnapshot()));
+    reply
+      .type("text/html")
+      .send(
+        renderSourcesPage(
+          supervisor.getStatus(),
+          supervisor.getDiscoverySnapshot(),
+          configService.getCached()
+        )
+      );
   });
 
   app.get("/settings", async (_request, reply) => {
@@ -88,6 +96,7 @@ export async function registerRoutes(app: FastifyInstance, context: RouteContext
     const patch = settingsPatchSchema.parse(request.body);
     const merged = mergeConfig(configService.getCached(), patch);
     await configService.save(merged);
+    supervisor.syncConfig(merged);
     await logger.info("Configuration updated", {
       sourceName: merged.receiver.sourceName,
       autoStart: merged.receiver.autoStart
@@ -141,6 +150,7 @@ export async function registerRoutes(app: FastifyInstance, context: RouteContext
         sourceName: body.sourceName
       }
     });
+    supervisor.syncConfig(updatedConfig);
 
     if (supervisor.getStatus().pid) {
       await supervisor.restart();

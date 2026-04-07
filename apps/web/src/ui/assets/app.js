@@ -2,6 +2,8 @@
   const initialDataNode = document.getElementById("initial-data");
   const flashNode = document.getElementById("flash");
   const initialData = initialDataNode ? JSON.parse(initialDataNode.textContent || "{}") : {};
+  let sourcePollInterval = null;
+  let sseFallbackShown = false;
 
   function showFlash(message, isError) {
     if (!flashNode) return;
@@ -85,36 +87,52 @@
     }
   }
 
+  async function refreshStatus() {
+    const result = await request("/api/status");
+    updateStatusFields(result.data);
+    return result.data;
+  }
+
+  function setButtonBusy(button, isBusy, label) {
+    if (!button) return;
+    if (!button.dataset.originalLabel) {
+      button.dataset.originalLabel = button.textContent || "";
+    }
+    button.disabled = isBusy;
+    button.textContent = isBusy ? label : button.dataset.originalLabel;
+  }
+
   function renderDiscovery(snapshot) {
     const tableBody = document.getElementById("sources-table-body");
     if (!tableBody) return;
 
     const selected = document.querySelector('input[name="sourceName"]:checked');
     const selectedName = selected ? selected.value : "";
-
     if (!snapshot) {
-      tableBody.innerHTML = `<tr><td colspan="4">No discovery has been run yet.</td></tr>`;
+      tableBody.innerHTML = `<div class="source-empty">No discovery has been run yet.</div>`;
       return;
     }
     if (snapshot.error) {
-      tableBody.innerHTML = `<tr><td colspan="4">Discovery error: ${snapshot.error}</td></tr>`;
+      tableBody.innerHTML = `<div class="source-empty">Discovery error: ${snapshot.error}</div>`;
       return;
     }
     if (!snapshot.sources.length) {
-      tableBody.innerHTML = `<tr><td colspan="4">No NDI sources found.</td></tr>`;
+      tableBody.innerHTML = `<div class="source-empty">No NDI sources found.</div>`;
       return;
     }
 
     tableBody.innerHTML = snapshot.sources
       .map((source) => `
-        <tr>
-          <td><input type="radio" name="sourceName" value="${source.name}" ${
+        <label class="source-option">
+          <input type="radio" name="sourceName" value="${source.name}" ${
             source.name === selectedName ? "checked" : ""
-          } /></td>
-          <td>${source.name}</td>
-          <td>${source.address || "n/a"}</td>
-          <td>${(source.groups || []).join(", ") || "n/a"}</td>
-        </tr>
+          } />
+          <span class="source-copy">
+            <strong>${source.name}</strong>
+            <small>${source.address || "n/a"}</small>
+          </span>
+          <span class="source-meta">${(source.groups || []).join(", ") || "LAN source"}</span>
+        </label>
       `)
       .join("");
   }
@@ -129,12 +147,16 @@
 
   document.querySelectorAll("[data-control-action]").forEach((button) => {
     button.addEventListener("click", async () => {
+      const action = button.getAttribute("data-control-action");
+      setButtonBusy(button, true, "Working...");
       try {
-        const action = button.getAttribute("data-control-action");
         await request(`/api/control/${action}`, { method: "POST", body: "{}" });
+        await refreshStatus();
         showFlash(`Receiver action executed: ${action}`, false);
       } catch (error) {
         showFlash(String(error.message || error), true);
+      } finally {
+        setButtonBusy(button, false);
       }
     });
   });
@@ -142,12 +164,15 @@
   const discoveryButton = document.querySelector("[data-discovery-refresh]");
   if (discoveryButton) {
     discoveryButton.addEventListener("click", async () => {
+      setButtonBusy(discoveryButton, true, "Searching...");
       try {
         const result = await request("/api/discovery", { method: "POST", body: "{}" });
         renderDiscovery(result.data);
         showFlash("Discovery completed", false);
       } catch (error) {
         showFlash(String(error.message || error), true);
+      } finally {
+        setButtonBusy(discoveryButton, false);
       }
     });
   }
@@ -157,19 +182,32 @@
     sourceForm.addEventListener("submit", async (event) => {
       event.preventDefault();
       const selected = sourceForm.querySelector('input[name="sourceName"]:checked');
+      const submitter = event.submitter;
       if (!selected) {
         showFlash("Select a source first", true);
         return;
       }
 
+      setButtonBusy(submitter, true, "Applying...");
       try {
         await request("/api/control/switch-source", {
           method: "POST",
           body: JSON.stringify({ sourceName: selected.value })
         });
+        const configuredSourceLabel = document.getElementById("configured-source-label");
+        if (configuredSourceLabel) {
+          configuredSourceLabel.textContent = selected.value;
+        }
+        await refreshStatus();
+        if (submitter && submitter.dataset.startAfter === "true") {
+          await request("/api/control/start", { method: "POST", body: "{}" });
+          await refreshStatus();
+        }
         showFlash(`Configured source: ${selected.value}`, false);
       } catch (error) {
         showFlash(String(error.message || error), true);
+      } finally {
+        setButtonBusy(submitter, false);
       }
     });
   }
@@ -178,24 +216,28 @@
   if (settingsForm) {
     settingsForm.addEventListener("submit", async (event) => {
       event.preventDefault();
+      const submitter = event.submitter;
+      setButtonBusy(submitter, true, "Saving...");
       try {
         await request("/api/settings", {
           method: "PUT",
           body: JSON.stringify(serializeForm(settingsForm))
         });
+        await refreshStatus();
         showFlash("Settings saved", false);
       } catch (error) {
         showFlash(String(error.message || error), true);
+      } finally {
+        setButtonBusy(submitter, false);
       }
     });
   }
 
   const autoDiscoveryToggle = document.querySelector("[data-auto-discovery]");
-  let discoveryInterval = null;
   if (autoDiscoveryToggle) {
     autoDiscoveryToggle.addEventListener("change", async () => {
       if (autoDiscoveryToggle.checked) {
-        discoveryInterval = setInterval(async () => {
+        sourcePollInterval = setInterval(async () => {
           try {
             const result = await request("/api/discovery", { method: "POST", body: "{}" });
             renderDiscovery(result.data);
@@ -203,14 +245,19 @@
             showFlash(String(error.message || error), true);
           }
         }, 10000);
-      } else if (discoveryInterval) {
-        clearInterval(discoveryInterval);
+      } else if (sourcePollInterval) {
+        clearInterval(sourcePollInterval);
+        sourcePollInterval = null;
       }
     });
   }
 
   if (initialData.discovery) {
     renderDiscovery(initialData.discovery);
+  } else if (initialData.page === "sources") {
+    void request("/api/discovery", { method: "POST", body: "{}" })
+      .then((result) => renderDiscovery(result.data))
+      .catch((error) => showFlash(String(error.message || error), true));
   }
 
   const events = new EventSource("/api/events");
@@ -226,4 +273,14 @@
       renderDiscovery(event.payload);
     }
   };
+  events.onerror = () => {
+    if (!sseFallbackShown) {
+      sseFallbackShown = true;
+      showFlash("Live updates interrupted, falling back to periodic refresh", true);
+    }
+  };
+
+  window.setInterval(() => {
+    void refreshStatus().catch(() => {});
+  }, 5000);
 })();

@@ -12,20 +12,25 @@ function renderStatusValue(value: string | number | boolean | null | undefined):
 }
 
 function statusGrid(status: ReceiverRuntimeStatus): string {
-  const items: Array<{ label: string; value: string | number | boolean | null | undefined }> = [
-    { label: "Receiver", value: status.lifecycle },
-    { label: "Connection", value: status.connectionState },
-    { label: "Source", value: status.sourceName },
-    { label: "Video", value: status.videoActive ? "active" : "idle" },
+  const items: Array<{
+    key: string;
+    label: string;
+    value: string | number | boolean | null | undefined;
+  }> = [
+    { key: "receiver", label: "Receiver", value: status.lifecycle },
+    { key: "connection", label: "Connection", value: status.connectionState },
+    { key: "source", label: "Source", value: status.sourceName },
+    { key: "video", label: "Video", value: status.videoActive ? "active" : "idle" },
     {
+      key: "audio",
       label: "Audio",
       value: status.audioEnabled ? (status.audioActive ? "active" : "enabled") : "disabled"
     },
-    { label: "Resolution", value: status.resolution },
-    { label: "FPS", value: status.fps },
-    { label: "Uptime (s)", value: status.uptimeSeconds },
-    { label: "Last error", value: status.lastError },
-    { label: "Restart count", value: status.restartCount }
+    { key: "resolution", label: "Resolution", value: status.resolution },
+    { key: "fps", label: "FPS", value: status.fps },
+    { key: "uptime-s", label: "Uptime (s)", value: status.uptimeSeconds },
+    { key: "last-error", label: "Last error", value: status.lastError },
+    { key: "restart-count", label: "Restart count", value: status.restartCount }
   ];
 
   return `<section class="panel">
@@ -33,9 +38,9 @@ function statusGrid(status: ReceiverRuntimeStatus): string {
     <div class="grid">
       ${items
         .map(
-          ({ label, value }) => `<div class="card">
+          ({ key, label, value }) => `<div class="card">
             <span class="label">${e(label)}</span>
-            <strong data-status-field="${e(label.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-"))}">${e(
+            <strong data-status-field="${e(key)}">${e(
               renderStatusValue(value)
             )}</strong>
           </div>`
@@ -54,29 +59,32 @@ function controls(): string {
       <button data-control-action="restart" class="secondary">Restart</button>
       <button data-control-action="reconnect" class="secondary">Reconnect</button>
     </div>
+    <p class="hint">Controls execute immediately and refresh status without a page reload.</p>
   </section>`;
 }
 
 function renderSourceRows(snapshot: DiscoverySnapshot | null, currentSource: string | null): string {
   if (!snapshot) {
-    return `<tr><td colspan="4">No discovery has been run yet.</td></tr>`;
+    return `<div class="source-empty">No discovery has been run yet.</div>`;
   }
   if (snapshot.error) {
-    return `<tr><td colspan="4">Discovery error: ${e(snapshot.error)}</td></tr>`;
+    return `<div class="source-empty">Discovery error: ${e(snapshot.error)}</div>`;
   }
   if (snapshot.sources.length === 0) {
-    return `<tr><td colspan="4">No NDI sources found.</td></tr>`;
+    return `<div class="source-empty">No NDI sources found.</div>`;
   }
 
   return snapshot.sources
     .map((source) => {
       const checked = source.name === currentSource ? "checked" : "";
-      return `<tr>
-        <td><input type="radio" name="sourceName" value="${e(source.name)}" ${checked} /></td>
-        <td>${e(source.name)}</td>
-        <td>${e(source.address ?? "n/a")}</td>
-        <td>${e(source.groups?.join(", ") ?? "n/a")}</td>
-      </tr>`;
+      return `<label class="source-option">
+        <input type="radio" name="sourceName" value="${e(source.name)}" ${checked} />
+        <span class="source-copy">
+          <strong>${e(source.name)}</strong>
+          <small>${e(source.address ?? "n/a")}</small>
+        </span>
+        <span class="source-meta">${e(source.groups?.join(", ") || "LAN source")}</span>
+      </label>`;
     })
     .join("");
 }
@@ -173,6 +181,17 @@ export function renderDashboardPage(status: ReceiverRuntimeStatus, config: AppCo
     "Dashboard",
     "/",
     `
+      <section class="panel hero">
+        <div>
+          <p class="eyebrow">Configured target</p>
+          <h2>${e(config.receiver.sourceName || "No source selected")}</h2>
+          <p class="hero-copy">Open the browser UI from your phone or desktop, select an NDI source and start the receiver. HDMI output is fullscreen without X11 or Wayland.</p>
+        </div>
+        <div class="hero-actions">
+          <button data-control-action="start">Start now</button>
+          <a class="button-link secondary" href="/sources">Choose source</a>
+        </div>
+      </section>
       ${statusGrid(status)}
       ${controls()}
       <section class="panel">
@@ -188,7 +207,8 @@ export function renderDashboardPage(status: ReceiverRuntimeStatus, config: AppCo
 
 export function renderSourcesPage(
   status: ReceiverRuntimeStatus,
-  snapshot: DiscoverySnapshot | null
+  snapshot: DiscoverySnapshot | null,
+  config: AppConfig
 ): string {
   return renderPage(
     "Sources",
@@ -203,27 +223,21 @@ export function renderSourcesPage(
             <label class="compact"><input type="checkbox" data-auto-discovery /> Auto refresh</label>
           </div>
         </div>
+        <p class="hint">Configured source: <strong id="configured-source-label">${e(
+          config.receiver.sourceName || "none"
+        )}</strong></p>
         <form id="source-select-form">
-          <table class="table">
-            <thead>
-              <tr>
-                <th>Select</th>
-                <th>Name</th>
-                <th>Address</th>
-                <th>Groups</th>
-              </tr>
-            </thead>
-            <tbody id="sources-table-body">
-              ${renderSourceRows(snapshot, status.sourceName)}
-            </tbody>
-          </table>
+          <div id="sources-table-body" class="source-list">
+            ${renderSourceRows(snapshot, config.receiver.sourceName)}
+          </div>
           <div class="actions">
             <button type="submit">Use selected source</button>
+            <button type="submit" class="secondary" data-start-after="true">Use and start</button>
           </div>
         </form>
       </section>
     `,
-    { page: "sources", discovery: snapshot }
+    { page: "sources", discovery: snapshot, config }
   );
 }
 

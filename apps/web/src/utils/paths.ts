@@ -21,6 +21,7 @@ export function resolveRuntimePaths(): RuntimePaths {
   const explicitRuntimeRoot = process.env.NDI_MONITOR_RUNTIME_ROOT;
   const explicitConfig = process.env.NDI_MONITOR_CONFIG_PATH;
   const explicitReceiverBinary = process.env.NDI_MONITOR_RECEIVER_BINARY;
+  const explicitLogDir = process.env.NDI_MONITOR_LOG_DIR;
 
   const productionConfig = "/etc/ndi-receiver/config.yaml";
   const useProductionLayout =
@@ -40,9 +41,11 @@ export function resolveRuntimePaths(): RuntimePaths {
 
   const defaultConfigFile = path.join(repoRoot, "config", "default.yaml");
   const dataDir = runtimeRoot;
-  const logDir = useProductionLayout
-    ? "/var/log/ndi-receiver"
-    : path.join(runtimeRoot, "logs");
+  const logDir = explicitLogDir
+    ? path.resolve(explicitLogDir)
+    : useProductionLayout
+      ? "/var/log/ndi-receiver"
+      : path.join(runtimeRoot, "logs");
   const receiverBinary = explicitReceiverBinary
     ? path.resolve(explicitReceiverBinary)
     : useProductionLayout

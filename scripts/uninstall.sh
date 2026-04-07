@@ -10,9 +10,17 @@ if [[ "${EUID}" -ne 0 ]]; then
 fi
 
 systemctl disable --now ndi-web.service || true
+systemctl disable --now ndi-standby.service || true
 rm -f /etc/systemd/system/ndi-web.service
+rm -f /etc/systemd/system/ndi-standby.service
 rm -f /etc/tmpfiles.d/ndi-monitor.conf
 systemctl daemon-reload
+
+if [[ -f /boot/cmdline.txt.ndi-monitor.bak ]]; then
+  cp /boot/cmdline.txt.ndi-monitor.bak /boot/cmdline.txt
+fi
+
+systemctl enable --now getty@tty1.service || true
 
 rm -rf "${INSTALL_ROOT}"
 
