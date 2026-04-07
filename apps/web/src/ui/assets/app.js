@@ -5,6 +5,19 @@
   let sourcePollInterval = null;
   let sseFallbackShown = false;
 
+  function escapeHtml(value) {
+    return String(value)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#39;");
+  }
+
+  function humanizeState(value) {
+    return value ? String(value).replaceAll("-", " ") : "n/a";
+  }
+
   function showFlash(message, isError) {
     if (!flashNode) return;
     flashNode.hidden = false;
@@ -67,8 +80,8 @@
 
   function updateStatusFields(status) {
     const map = {
-      "receiver": status.lifecycle,
-      "connection": status.connectionState,
+      "receiver": humanizeState(status.lifecycle),
+      "connection": humanizeState(status.connectionState),
       "source": status.sourceName || "n/a",
       "video": status.videoActive ? "active" : "idle",
       "audio": status.audioEnabled ? (status.audioActive ? "active" : "enabled") : "disabled",
@@ -109,29 +122,29 @@
     const selected = document.querySelector('input[name="sourceName"]:checked');
     const selectedName = selected ? selected.value : "";
     if (!snapshot) {
-      tableBody.innerHTML = `<div class="source-empty">No discovery has been run yet.</div>`;
+      tableBody.innerHTML = `<div class="source-empty">No source discovery has been run yet.</div>`;
       return;
     }
     if (snapshot.error) {
-      tableBody.innerHTML = `<div class="source-empty">Discovery error: ${snapshot.error}</div>`;
+      tableBody.innerHTML = `<div class="source-empty">Discovery error: ${escapeHtml(snapshot.error)}</div>`;
       return;
     }
     if (!snapshot.sources.length) {
-      tableBody.innerHTML = `<div class="source-empty">No NDI sources found.</div>`;
+      tableBody.innerHTML = `<div class="source-empty">No NDI sources were found on the current network.</div>`;
       return;
     }
 
     tableBody.innerHTML = snapshot.sources
       .map((source) => `
         <label class="source-option">
-          <input type="radio" name="sourceName" value="${source.name}" ${
+          <input type="radio" name="sourceName" value="${escapeHtml(source.name)}" ${
             source.name === selectedName ? "checked" : ""
           } />
           <span class="source-copy">
-            <strong>${source.name}</strong>
-            <small>${source.address || "n/a"}</small>
+            <strong>${escapeHtml(source.name)}</strong>
+            <small>${escapeHtml(source.address || "n/a")}</small>
           </span>
-          <span class="source-meta">${(source.groups || []).join(", ") || "LAN source"}</span>
+          <span class="source-meta">${escapeHtml((source.groups || []).join(", ") || "LAN source")}</span>
         </label>
       `)
       .join("");
@@ -152,7 +165,13 @@
       try {
         await request(`/api/control/${action}`, { method: "POST", body: "{}" });
         await refreshStatus();
-        showFlash(`Receiver action executed: ${action}`, false);
+        const actionLabels = {
+          start: "Receiver start requested.",
+          stop: "Receiver stop requested.",
+          restart: "Receiver restart requested.",
+          reconnect: "Receiver reconnect requested."
+        };
+        showFlash(actionLabels[action] || `Receiver action executed: ${action}`, false);
       } catch (error) {
         showFlash(String(error.message || error), true);
       } finally {
@@ -168,7 +187,7 @@
       try {
         const result = await request("/api/discovery", { method: "POST", body: "{}" });
         renderDiscovery(result.data);
-        showFlash("Discovery completed", false);
+        showFlash("Source discovery finished.", false);
       } catch (error) {
         showFlash(String(error.message || error), true);
       } finally {
@@ -184,7 +203,7 @@
       const selected = sourceForm.querySelector('input[name="sourceName"]:checked');
       const submitter = event.submitter;
       if (!selected) {
-        showFlash("Select a source first", true);
+        showFlash("Select an NDI source first.", true);
         return;
       }
 
@@ -202,8 +221,10 @@
         if (submitter && submitter.dataset.startAfter === "true") {
           await request("/api/control/start", { method: "POST", body: "{}" });
           await refreshStatus();
+          showFlash(`Configured source updated and output start requested: ${selected.value}`, false);
+          return;
         }
-        showFlash(`Configured source: ${selected.value}`, false);
+        showFlash(`Configured source updated: ${selected.value}`, false);
       } catch (error) {
         showFlash(String(error.message || error), true);
       } finally {
@@ -224,7 +245,7 @@
           body: JSON.stringify(serializeForm(settingsForm))
         });
         await refreshStatus();
-        showFlash("Settings saved", false);
+        showFlash("Settings saved. Runtime changes are applied immediately or on the next start.", false);
       } catch (error) {
         showFlash(String(error.message || error), true);
       } finally {
@@ -276,7 +297,7 @@
   events.onerror = () => {
     if (!sseFallbackShown) {
       sseFallbackShown = true;
-      showFlash("Live updates interrupted, falling back to periodic refresh", true);
+      showFlash("Live updates were interrupted. Falling back to periodic status refresh.", true);
     }
   };
 

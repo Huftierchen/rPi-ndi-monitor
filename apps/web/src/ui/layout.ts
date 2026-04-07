@@ -48,7 +48,7 @@ export function renderPage(
       <header class="topbar">
         <div>
           <h1>NDI Monitor</h1>
-          <p>Headless NDI receiver control plane for Raspberry Pi 5</p>
+          <p>Headless HDMI NDI appliance for Raspberry Pi 5</p>
         </div>
         <nav class="nav">${nav}</nav>
       </header>

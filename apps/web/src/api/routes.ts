@@ -73,7 +73,7 @@ export async function registerRoutes(app: FastifyInstance, context: RouteContext
   });
 
   app.get("/about", async (_request, reply) => {
-    reply.type("text/html").send(renderAboutPage());
+    reply.type("text/html").send(renderAboutPage(configService.getCached()));
   });
 
   app.get("/healthz", async () => ({
