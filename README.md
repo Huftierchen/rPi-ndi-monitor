@@ -39,7 +39,7 @@ Repository status:
 - `ndi-standby.service` draws the appliance standby screen on `tty1` at boot
 - The web supervisor redraws the same standby screen after `stop` or clean receiver exit
 
-More detail: [ARCHITECTURE.md](/home/pi/ndi-monitor/docs/ARCHITECTURE.md)
+More detail: [ARCHITECTURE.md](docs/ARCHITECTURE.md)
 
 ## Current Feature Set
 
@@ -70,7 +70,7 @@ More detail: [ARCHITECTURE.md](/home/pi/ndi-monitor/docs/ARCHITECTURE.md)
 
 ## Quick Start on the Pi
 
-Full step-by-step deployment: [DEPLOYMENT_PI5.md](/home/pi/ndi-monitor/docs/DEPLOYMENT_PI5.md)
+Full step-by-step deployment: [DEPLOYMENT_PI5.md](docs/DEPLOYMENT_PI5.md)
 
 Short version:
 
@@ -143,7 +143,7 @@ cmake -S apps/receiver -B apps/receiver/build \
   -DNDI_SDK_DIR=/opt/ndi_sdk \
   -DRECEIVER_ALLOW_STUB_BACKEND=OFF
 cmake --build apps/receiver/build -j"$(nproc)"
-ctest --test-dir apps/receiver/build --output-on-failure
+(cd apps/receiver/build && ctest --output-on-failure)
 ```
 
 ### Stub Build without the SDK

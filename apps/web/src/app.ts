@@ -3,6 +3,7 @@ import path from "node:path";
 import fastify from "fastify";
 import fastifyFormBody from "@fastify/formbody";
 import fastifyStatic from "@fastify/static";
+import { z } from "zod";
 
 import { ConfigService } from "./config/service.js";
 import { EventBus } from "./events/event-bus.js";
@@ -40,8 +41,9 @@ export async function buildApp(paths: RuntimePaths) {
 
   app.setErrorHandler(async (error, _request, reply) => {
     const message = error instanceof Error ? error.message : String(error);
+    const statusCode = error instanceof z.ZodError ? 400 : 500;
     await logger.error("Request failed", { error: message });
-    reply.status(500).send({
+    reply.status(statusCode).send({
       ok: false,
       error: message
     });

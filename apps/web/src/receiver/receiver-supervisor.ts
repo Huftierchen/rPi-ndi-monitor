@@ -26,6 +26,29 @@ interface ReceiverEvent {
   payload?: ReceiverStatusFile;
 }
 
+function sanitizeWebControlUrl(value: string | null | undefined): string | null {
+  if (!value) {
+    return null;
+  }
+
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      return null;
+    }
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
+
+function sanitizeDiscoverySource(source: DiscoverySource): DiscoverySource {
+  return {
+    ...source,
+    webControlUrl: sanitizeWebControlUrl(source.webControlUrl)
+  };
+}
+
 export class ReceiverSupervisor {
   private child: ChildProcess | null = null;
   private status: ReceiverRuntimeStatus;
@@ -237,10 +260,10 @@ export class ReceiverSupervisor {
 
     let stdout = "";
     let stderr = "";
-    proc.stdout.on("data", (chunk: Buffer) => {
+    proc.stdout?.on("data", (chunk: Buffer) => {
       stdout += chunk.toString("utf8");
     });
-    proc.stderr.on("data", (chunk: Buffer) => {
+    proc.stderr?.on("data", (chunk: Buffer) => {
       stderr += chunk.toString("utf8");
     });
 
@@ -255,7 +278,7 @@ export class ReceiverSupervisor {
 
     if (exitCode === 0) {
       try {
-        sources = JSON.parse(stdout) as DiscoverySource[];
+        sources = (JSON.parse(stdout) as DiscoverySource[]).map(sanitizeDiscoverySource);
       } catch (parseError) {
         error = `Failed to parse discovery output: ${String(parseError)}`;
       }
@@ -337,35 +360,28 @@ export class ReceiverSupervisor {
       try {
         this.applyReceiverEvent(JSON.parse(line.slice(6)) as ReceiverEvent);
       } catch (error) {
+        const timestamp = new Date().toISOString();
         const message = `Malformed receiver event: ${String(error)}`;
-        await this.logStore.append({
-          timestamp: new Date().toISOString(),
+        const entry = {
+          timestamp,
           scope: "receiver",
           level: "warn",
           message
-        });
-        this.events.publishLog({
-          timestamp: new Date().toISOString(),
-          scope: "receiver",
-          level: "warn",
-          message
-        });
+        } as const;
+        await this.logStore.append(entry);
+        this.events.publishLog(entry);
       }
       return;
     }
 
-    await this.logStore.append({
+    const entry = {
       timestamp: new Date().toISOString(),
       scope: "receiver",
       level,
       message: line
-    });
-    this.events.publishLog({
-      timestamp: new Date().toISOString(),
-      scope: "receiver",
-      level,
-      message: line
-    });
+    } as const;
+    await this.logStore.append(entry);
+    this.events.publishLog(entry);
   }
 
   private applyReceiverEvent(event: ReceiverEvent): void {

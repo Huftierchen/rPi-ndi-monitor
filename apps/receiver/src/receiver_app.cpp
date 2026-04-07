@@ -20,6 +20,18 @@ void emit_status_event(const ReceiverStatusSnapshot& snapshot) {
   std::cout << "EVENT {\"type\":\"status\",\"payload\":" << payload << "}" << std::endl;
 }
 
+int compute_reconnect_delay_ms(const RunOptions& options, int reconnect_attempt) {
+  const double delay =
+      static_cast<double>(options.reconnect_initial_delay_ms) *
+      std::pow(options.reconnect_backoff_multiplier, reconnect_attempt - 1);
+  if (!std::isfinite(delay)) {
+    return options.reconnect_max_delay_ms;
+  }
+
+  const double clamped = std::min(delay, static_cast<double>(options.reconnect_max_delay_ms));
+  return static_cast<int>(std::round(clamped));
+}
+
 }  // namespace
 
 ReceiverApp::ReceiverApp(RunOptions options, Logger logger, StatusWriter status_writer,
@@ -66,11 +78,7 @@ int ReceiverApp::Run() {
       }
 
       ++reconnect_attempt;
-      const int delay = std::min(
-          options_.reconnect_max_delay_ms,
-          static_cast<int>(std::round(options_.reconnect_initial_delay_ms *
-                                      std::pow(options_.reconnect_backoff_multiplier,
-                                               reconnect_attempt - 1))));
+      const int delay = compute_reconnect_delay_ms(options_, reconnect_attempt);
       logger_.Info(LogCategory::kReconnect,
                    "Retrying source lookup in " + std::to_string(delay) + "ms");
       logger_.EmitEvent("reconnecting", connect_error, options_.source_name);
@@ -189,7 +197,12 @@ void ReceiverApp::UpdateStatus(const std::string& lifecycle, const std::string& 
 
   emit_status_event(status_);
   if (force_write && !status_writer_.path().empty()) {
-    status_writer_.Write(status_);
+    try {
+      status_writer_.Write(status_);
+    } catch (const std::exception& error) {
+      logger_.Warn(LogCategory::kError,
+                   "Failed to persist receiver status snapshot: " + std::string(error.what()));
+    }
   }
   last_written_status_ = status_;
   last_status_write_at_ = now;

@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { mergeConfig, validateConfig } from "../src/config/schema.js";
+import { appConfigPatchSchema, mergeConfig, validateConfig } from "../src/config/schema.js";
 import type { AppConfig } from "../src/types.js";
 
 const baseConfig: AppConfig = {
@@ -89,4 +89,27 @@ test("validateConfig fills new receiver performance defaults", () => {
 
   assert.equal(parsed.receiver.colorFormat, "fastest");
   assert.equal(parsed.receiver.lowLatencyMode, true);
+});
+
+test("appConfigPatchSchema rejects unknown keys", () => {
+  assert.throws(() => {
+    appConfigPatchSchema.parse({
+      receiver: {
+        sourceName: "Studio",
+        arbitraryPath: "/tmp/nope"
+      }
+    });
+  });
+});
+
+test("appConfigPatchSchema accepts nested partial updates", () => {
+  const patch = appConfigPatchSchema.parse({
+    receiver: {
+      reconnect: {
+        maxDelayMs: 9000
+      }
+    }
+  });
+
+  assert.equal(patch.receiver?.reconnect?.maxDelayMs, 9000);
 });

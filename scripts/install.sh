@@ -21,6 +21,12 @@ require_root() {
   fi
 }
 
+ensure_group() {
+  if ! getent group "$1" >/dev/null 2>&1; then
+    groupadd --system "$1"
+  fi
+}
+
 prepare_pnpm() {
   require_command node
   require_command corepack
@@ -29,10 +35,22 @@ prepare_pnpm() {
 }
 
 configure_user() {
+  local groups=()
+  local group_list=""
+
+  for group in video audio render; do
+    ensure_group "${group}"
+    groups+=("${group}")
+  done
+  group_list="$(IFS=,; printf '%s' "${groups[*]}")"
+
   if ! id -u "${SYSTEM_USER}" >/dev/null 2>&1; then
     useradd --system --home /var/lib/ndi-receiver --shell /usr/sbin/nologin \
-      --groups video,audio,render "${SYSTEM_USER}"
+      --groups "${group_list}" "${SYSTEM_USER}"
+    return
   fi
+
+  usermod --append --groups "${group_list}" "${SYSTEM_USER}"
 }
 
 build_project() {
@@ -64,6 +82,10 @@ copy_ndi_runtime() {
   local sdk_lib_dir=""
 
   if [[ ! -d "${sdk_dir}" ]]; then
+    if [[ "${ALLOW_STUB_BACKEND}" == "1" ]]; then
+      echo "NDI SDK directory not found, skipping runtime copy for stub build: ${sdk_dir}"
+      return
+    fi
     echo "NDI SDK directory not found: ${sdk_dir}" >&2
     exit 1
   fi

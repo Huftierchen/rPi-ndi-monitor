@@ -9,11 +9,23 @@ if [[ ! -w "${TTY_DEVICE}" ]]; then
   exit 0
 fi
 
-read_yaml_value() {
-  local key="$1"
-  local file="$2"
-  awk -F': *' -v key="${key}" '$1 ~ "^[[:space:]]*" key "$" {print $2; exit}' "${file}" \
-    | sed -e 's/^"//' -e 's/"$//'
+read_yaml_section_value() {
+  local section="$1"
+  local key="$2"
+  local file="$3"
+  awk -v section="${section}" -v key="${key}" '
+    /^[^[:space:]].*:[[:space:]]*$/ {
+      in_section = ($0 == section ":")
+      next
+    }
+    in_section && $0 ~ "^[[:space:]]+" key ":[[:space:]]*" {
+      sub("^[[:space:]]+" key ":[[:space:]]*", "", $0)
+      gsub(/^"/, "", $0)
+      gsub(/"$/, "", $0)
+      print
+      exit
+    }
+  ' "${file}"
 }
 
 hostname_short="$(hostname -s 2>/dev/null || hostname)"
@@ -30,17 +42,17 @@ device_name="${hostname_short}"
 source_name="not configured"
 
 if [[ -r "${CONFIG_FILE}" ]]; then
-  parsed_source="$(read_yaml_value "sourceName" "${CONFIG_FILE}")"
+  parsed_source="$(read_yaml_section_value "receiver" "sourceName" "${CONFIG_FILE}")"
   if [[ -n "${parsed_source}" ]]; then
     source_name="${parsed_source}"
   fi
 
-  parsed_port="$(read_yaml_value "port" "${CONFIG_FILE}")"
+  parsed_port="$(read_yaml_section_value "server" "port" "${CONFIG_FILE}")"
   if [[ -n "${parsed_port}" ]]; then
     server_port="${parsed_port}"
   fi
 
-  parsed_device_name="$(read_yaml_value "name" "${CONFIG_FILE}")"
+  parsed_device_name="$(read_yaml_section_value "device" "name" "${CONFIG_FILE}")"
   if [[ -n "${parsed_device_name}" ]]; then
     device_name="${parsed_device_name}"
   fi

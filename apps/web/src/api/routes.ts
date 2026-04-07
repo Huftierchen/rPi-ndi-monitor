@@ -3,7 +3,7 @@ import { createReadStream } from "node:fs";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
 
-import { mergeConfig, type AppConfigPatch } from "../config/schema.js";
+import { appConfigPatchSchema, mergeConfig, type AppConfigPatch } from "../config/schema.js";
 import { ConfigService } from "../config/service.js";
 import { EventBus } from "../events/event-bus.js";
 import { AppLogger } from "../logging/app-logger.js";
@@ -35,11 +35,7 @@ const switchSourceSchema = z.object({
   sourceName: z.string().min(1)
 });
 
-const settingsPatchSchema: z.ZodType<AppConfigPatch> = z.any();
-
-function sendEvent(reply: FastifyReply, event: unknown): void {
-  reply.raw.write(`data: ${JSON.stringify(event)}\n\n`);
-}
+const settingsPatchSchema: z.ZodType<AppConfigPatch> = appConfigPatchSchema;
 
 export async function registerRoutes(app: FastifyInstance, context: RouteContext): Promise<void> {
   const { configService, events, logStore, logger, supervisor } = context;
@@ -179,29 +175,64 @@ export async function registerRoutes(app: FastifyInstance, context: RouteContext
   });
 
   app.get("/api/events", async (_request: FastifyRequest, reply: FastifyReply) => {
+    let closed = false;
+    let unsubscribe: (() => void) | null = null;
+    let heartbeat: NodeJS.Timeout | null = null;
+
+    const cleanup = (): void => {
+      if (closed) {
+        return;
+      }
+      closed = true;
+      if (heartbeat) {
+        clearInterval(heartbeat);
+        heartbeat = null;
+      }
+      unsubscribe?.();
+      unsubscribe = null;
+      if (!reply.raw.destroyed && !reply.raw.writableEnded) {
+        reply.raw.end();
+      }
+    };
+
+    const writeSseFrame = (payload: string): boolean => {
+      if (closed || reply.raw.destroyed || reply.raw.writableEnded) {
+        cleanup();
+        return false;
+      }
+
+      try {
+        reply.raw.write(payload);
+        return true;
+      } catch {
+        cleanup();
+        return false;
+      }
+    };
+
     reply.raw.setHeader("content-type", "text/event-stream");
     reply.raw.setHeader("cache-control", "no-cache");
     reply.raw.setHeader("connection", "keep-alive");
     reply.raw.flushHeaders();
 
-    sendEvent(reply, { type: "status", payload: supervisor.getStatus() });
+    if (!writeSseFrame(`data: ${JSON.stringify({ type: "status", payload: supervisor.getStatus() })}\n\n`)) {
+      return;
+    }
     const discovery = supervisor.getDiscoverySnapshot();
-    if (discovery) {
-      sendEvent(reply, { type: "discovery", payload: discovery });
+    if (discovery && !writeSseFrame(`data: ${JSON.stringify({ type: "discovery", payload: discovery })}\n\n`)) {
+      return;
     }
 
-    const unsubscribe = events.subscribe((event) => {
-      sendEvent(reply, event);
+    unsubscribe = events.subscribe((event) => {
+      writeSseFrame(`data: ${JSON.stringify(event)}\n\n`);
     });
 
-    const heartbeat = setInterval(() => {
-      reply.raw.write(": keep-alive\n\n");
+    heartbeat = setInterval(() => {
+      writeSseFrame(": keep-alive\n\n");
     }, 15000);
 
-    reply.raw.on("close", () => {
-      clearInterval(heartbeat);
-      unsubscribe();
-      reply.raw.end();
-    });
+    reply.raw.once("close", cleanup);
+    reply.raw.once("error", cleanup);
+    reply.raw.once("finish", cleanup);
   });
 }

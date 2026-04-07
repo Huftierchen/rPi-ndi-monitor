@@ -43,6 +43,31 @@ bool parse_enabled_flag(const std::string& value) {
   throw std::invalid_argument("Unsupported boolean flag: " + value);
 }
 
+int parse_int_at_least(const std::string& raw, const char* flag, int minimum) {
+  const int value = std::stoi(raw);
+  if (value < minimum) {
+    throw std::invalid_argument(std::string(flag) + " must be >= " + std::to_string(minimum));
+  }
+  return value;
+}
+
+int parse_int_in_range(const std::string& raw, const char* flag, int minimum, int maximum) {
+  const int value = std::stoi(raw);
+  if (value < minimum || value > maximum) {
+    throw std::invalid_argument(std::string(flag) + " must be between " +
+                                std::to_string(minimum) + " and " + std::to_string(maximum));
+  }
+  return value;
+}
+
+double parse_double_at_least(const std::string& raw, const char* flag, double minimum) {
+  const double value = std::stod(raw);
+  if (value < minimum) {
+    throw std::invalid_argument(std::string(flag) + " must be >= " + std::to_string(minimum));
+  }
+  return value;
+}
+
 std::string require_value(int argc, char** argv, int& index) {
   if (index + 1 >= argc) {
     throw std::invalid_argument("Missing value for argument: " + std::string(argv[index]));
@@ -77,7 +102,8 @@ CliOptions parse_cli(int argc, char** argv) {
       } else if (is_flag(argument, "--color-format")) {
         options.run.color_format = parse_color_format(require_value(argc, argv, index));
       } else if (is_flag(argument, "--output-fps-cap")) {
-        options.run.output_fps_cap = std::stoi(require_value(argc, argv, index));
+        options.run.output_fps_cap =
+            parse_int_in_range(require_value(argc, argv, index), "--output-fps-cap", 0, 120);
       } else if (is_flag(argument, "--low-latency-mode")) {
         options.run.low_latency_mode = parse_enabled_flag(require_value(argc, argv, index));
       } else if (is_flag(argument, "--status-file")) {
@@ -93,11 +119,14 @@ CliOptions parse_cli(int argc, char** argv) {
       } else if (is_flag(argument, "--reconnect-enabled")) {
         options.run.reconnect_enabled = parse_enabled_flag(require_value(argc, argv, index));
       } else if (is_flag(argument, "--reconnect-initial-delay-ms")) {
-        options.run.reconnect_initial_delay_ms = std::stoi(require_value(argc, argv, index));
+        options.run.reconnect_initial_delay_ms = parse_int_at_least(
+            require_value(argc, argv, index), "--reconnect-initial-delay-ms", 100);
       } else if (is_flag(argument, "--reconnect-max-delay-ms")) {
-        options.run.reconnect_max_delay_ms = std::stoi(require_value(argc, argv, index));
+        options.run.reconnect_max_delay_ms =
+            parse_int_at_least(require_value(argc, argv, index), "--reconnect-max-delay-ms", 100);
       } else if (is_flag(argument, "--reconnect-backoff-multiplier")) {
-        options.run.reconnect_backoff_multiplier = std::stod(require_value(argc, argv, index));
+        options.run.reconnect_backoff_multiplier = parse_double_at_least(
+            require_value(argc, argv, index), "--reconnect-backoff-multiplier", 1.0);
       } else if (is_flag(argument, "--help")) {
         options.command = CommandKind::kHelp;
       } else {
@@ -112,6 +141,10 @@ CliOptions parse_cli(int argc, char** argv) {
       if (options.run.status_file.empty()) {
         throw std::invalid_argument("--status-file is required for run");
       }
+      if (options.run.reconnect_initial_delay_ms > options.run.reconnect_max_delay_ms) {
+        throw std::invalid_argument(
+            "--reconnect-initial-delay-ms must be less than or equal to --reconnect-max-delay-ms");
+      }
     }
     return options;
   }
@@ -123,7 +156,8 @@ CliOptions parse_cli(int argc, char** argv) {
       if (is_flag(argument, "--json")) {
         options.discover.json = true;
       } else if (is_flag(argument, "--timeout-ms")) {
-        options.discover.timeout_ms = std::stoi(require_value(argc, argv, index));
+        options.discover.timeout_ms =
+            parse_int_at_least(require_value(argc, argv, index), "--timeout-ms", 1);
       } else if (is_flag(argument, "--help")) {
         options.command = CommandKind::kHelp;
       } else {

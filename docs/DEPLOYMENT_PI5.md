@@ -17,7 +17,7 @@ Note: the current verified runtime box in this repository is a Raspberry Pi 4, b
 - enables `pnpm` via Corepack
 - builds the web app and native receiver
 - copies the repo to `/opt/ndi-monitor`
-- copies NDI runtime libraries to `/opt/ndi-monitor/lib`
+- copies NDI runtime libraries to `/opt/ndi-monitor/lib` for real SDK builds
 - creates `/etc/ndi-receiver`, `/var/lib/ndi-receiver`, `/var/log/ndi-receiver`, and `/run/ndi-monitor`
 - installs `ndi-web.service` and `ndi-standby.service`
 - disables `getty@tty1.service`
@@ -138,6 +138,8 @@ export ALLOW_STUB_BACKEND=1
 export NDI_RECEIVER_STUB_SOURCE="Demo Source"
 sudo ./scripts/install.sh
 ```
+
+For stub builds, `install.sh` skips the NDI runtime copy when no SDK directory is present.
 
 This is for development only, not for production.
 

@@ -17,7 +17,7 @@ export class ConfigService {
     await mkdir(this.paths.logDir, { recursive: true });
 
     try {
-      await readFile(this.paths.configFile, "utf8");
+      return await this.load();
     } catch (error) {
       const code = typeof error === "object" && error !== null && "code" in error
         ? String(error.code)
@@ -26,9 +26,8 @@ export class ConfigService {
         throw error;
       }
       await copyFile(this.paths.defaultConfigFile, this.paths.configFile);
+      return this.load();
     }
-
-    return this.load();
   }
 
   public async load(): Promise<AppConfig> {

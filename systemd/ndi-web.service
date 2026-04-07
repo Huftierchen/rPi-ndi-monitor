@@ -25,6 +25,13 @@ TimeoutStopSec=15
 StandardOutput=journal
 StandardError=journal
 NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectProc=invisible
+ReadWritePaths=/etc/ndi-receiver /var/lib/ndi-receiver /var/log/ndi-receiver /run/ndi-monitor
+RestrictSUIDSGID=true
+LockPersonality=true
 UMask=0027
 
 [Install]
