@@ -1,78 +1,78 @@
-# NDI Monitor fuer Raspberry Pi 5
+# NDI Monitor for Raspberry Pi
 
-`ndi-monitor` ist ein Monorepo fuer eine headless NDI-Appliance auf Raspberry Pi 5. Der Pi bootet ohne Desktop in `multi-user.target`, zeigt im Idle-Zustand einen HDMI-Standby-Screen mit Web-UI-URL, Hostname, IP und QR-Code und gibt nach Start genau einen ausgewaehlten NDI-Stream fullscreen ueber KMS/DRM aus.
+`ndi-monitor` is a monorepo for a headless NDI appliance on Raspberry Pi. The device boots into `multi-user.target`, shows an HDMI standby screen with the Web UI URL, hostname, IP address, and QR code while idle, and renders one selected NDI source fullscreen over KMS/DRM once playback starts.
 
-Die Steuerung laeuft ueber eine lokale Web-Oberflaeche. Node.js ist nur die Control Plane. Der eigentliche NDI-Empfang und das Rendering passieren in einer nativen C++-Komponente.
+The Web UI is the control plane only. Actual NDI receive, reconnect handling, and HDMI rendering happen in a native C++ component.
 
 ## Status
 
-Der aktuelle Stand ist produktionsnah und auf dem Zielgeraet verifiziert:
+The current project state is production-oriented and verified on the target device:
 
-- Web-UI, REST-API und SSE laufen unter `ndi-web.service`
-- Discovery, Source-Switch, Start, Stop, Restart und Reconnect funktionieren
-- der Receiver laeuft als Child-Prozess des Web-Dienstes
-- HDMI-Standby-Screen mit QR-Code ersetzt auf `tty1` den normalen Login-Prompt
-- echte NDI-Wiedergabe wurde auf diesem Pi gegen einen TouchDesigner-Stream verifiziert
-- Logs werden persistent geschrieben, der Receiver-Status laeuft live ueber Prozess-Events
+- Web UI, REST API, and SSE run under `ndi-web.service`
+- Discovery, source switching, start, stop, restart, and reconnect work
+- The receiver runs as a child process of the web service
+- The HDMI standby screen replaces the normal `tty1` login prompt
+- Real NDI playback was verified locally against live network senders
+- Logs are persisted, while live receiver status now flows over process events
 
-Aktuell verifiziertes Git-Setup in diesem Repo:
+Repository status:
 
-- `main` ist sauber
-- GitHub-Remote: `https://github.com/Huftierchen/rPi5-ndi-monitor.git`
+- `main` is the active branch
+- GitHub remote: `https://github.com/Huftierchen/rPi5-ndi-monitor.git`
 
-## Projektstruktur
+## Project Structure
 
-- `apps/web`: Fastify + TypeScript fuer SSR-UI, REST-API, SSE, Config, Status und Prozessaufsicht
-- `apps/receiver`: C++17 + CMake fuer NDI Discovery, NDI-Empfang, Reconnect und HDMI-Rendering
-- `config/`: Default-Konfiguration
-- `docs/`: Architektur-, Deployment- und Betriebsdokumentation
-- `scripts/`: Install-, Update-, Uninstall- und Standby-Skripte
-- `systemd/`: `ndi-web.service`, `ndi-standby.service`, `tmpfiles`
+- `apps/web`: Fastify + TypeScript for SSR UI, REST API, SSE, config, status, and supervision
+- `apps/receiver`: C++17 + CMake for NDI discovery, receive, reconnect, and HDMI rendering
+- `config/`: default runtime configuration
+- `docs/`: architecture, deployment, and operations documentation
+- `scripts/`: install, update, uninstall, and standby screen scripts
+- `systemd/`: `ndi-web.service`, `ndi-standby.service`, and tmpfiles configuration
 
-## Architektur in Kurzform
+## Architecture Summary
 
-- Node.js rendert keine Video-Frames
-- `ndi-web.service` ist der einzige Hauptdienst
-- der Web-Dienst verwaltet den nativen Receiver als Child-Prozess
-- Discovery laeuft als separater nativer CLI-Aufruf
-- Status kommt primaer aus nativen Live-Ereignissen; die Statusdatei bleibt als letzter persistierter Snapshot
-- `ndi-standby.service` schreibt beim Boot den Appliance-Screen auf `tty1`
-- der Web-Supervisor zeichnet denselben Standby-Screen nach `Stop` oder Receiver-Exit erneut
+- Node.js does not render video frames
+- `ndi-web.service` is the single control-plane service
+- The web service manages the native receiver as a child process
+- Discovery runs as a short native CLI invocation
+- Live status is sourced from native process events; the status JSON file is only a persisted snapshot
+- `ndi-standby.service` draws the appliance standby screen on `tty1` at boot
+- The web supervisor redraws the same standby screen after `stop` or clean receiver exit
 
-Mehr Details: [ARCHITECTURE.md](/home/pi/ndi-monitor/docs/ARCHITECTURE.md)
+More detail: [ARCHITECTURE.md](/home/pi/ndi-monitor/docs/ARCHITECTURE.md)
 
-## Was die Appliance heute kann
+## Current Feature Set
 
-- Dashboard mit Receiver-, Verbindungs-, Video-, Audio- und Fehlerstatus
-- NDI-Source-Discovery aus der Web-UI
-- Quelle auswaehlen und optional direkt starten
-- YAML-Konfiguration persistent in `/etc/ndi-receiver/config.yaml`
-- Auto-Start und Reconnect-Backoff
-- Live-Status ueber SSE plus periodisches Browser-Fallback
-- Downloadbare Web- und Receiver-Logs
-- headless HDMI-Betrieb ohne X11 oder Wayland
+- Dashboard with receiver, connection, video, audio, and error status
+- NDI source discovery from the Web UI
+- Source selection with optional immediate start
+- Persistent YAML configuration in `/etc/ndi-receiver/config.yaml`
+- Auto-start and reconnect backoff
+- Live status over SSE with browser fallback polling
+- Downloadable web and receiver logs
+- Headless HDMI operation without X11 or Wayland
 
-## Wichtige Seiten
+## Main UI Pages
 
-- `/`: Dashboard und Sofort-Steuerung
-- `/sources`: Discovery, Source-Auswahl, "Use selected source", "Use and start"
-- `/settings`: alle persistenten Laufzeitoptionen
-- `/logs`: Web- und Receiver-Logs
-- `/about`: Kurzbeschreibung der Appliance
+- `/`: dashboard and immediate controls
+- `/sources`: discovery, source selection, and apply/start actions
+- `/settings`: persistent runtime configuration
+- `/logs`: web and receiver logs
+- `/about`: appliance overview and runtime paths
 
-## Wichtige Laufzeitpfade
+## Important Runtime Paths
 
-- Konfiguration: `/etc/ndi-receiver/config.yaml`
-- Status-Snapshot: `/var/lib/ndi-receiver/receiver-status.json`
-- Web-Log: `/var/log/ndi-receiver/web.log`
-- Receiver-Log: `/var/log/ndi-receiver/receiver.log`
-- Installation: `/opt/ndi-monitor`
+- Config: `/etc/ndi-receiver/config.yaml`
+- Status snapshot: `/var/lib/ndi-receiver/receiver-status.json`
+- Web log: `/var/log/ndi-receiver/web.log`
+- Receiver log: `/var/log/ndi-receiver/receiver.log`
+- Install root: `/opt/ndi-monitor`
 
-## Schnellstart auf dem Pi
+## Quick Start on the Pi
 
-Vollstaendige Schrittfolge: [DEPLOYMENT_PI5.md](/home/pi/ndi-monitor/docs/DEPLOYMENT_PI5.md)
+Full step-by-step deployment: [DEPLOYMENT_PI5.md](/home/pi/ndi-monitor/docs/DEPLOYMENT_PI5.md)
 
-Kurzform:
+Short version:
 
 ```bash
 sudo apt-get update
@@ -88,35 +88,35 @@ sudo ./scripts/install.sh
 sudo reboot
 ```
 
-Nach dem Reboot:
+After reboot:
 
-- HDMI zeigt den Standby-Screen mit Web-UI-URL, Hostname, IP und QR-Code
-- Web-UI ist unter `http://<pi-ip>:8080/` erreichbar
-- auf `/sources` die gewuenschte NDI-Quelle auswaehlen
-- optional `autoStart` in `/settings` aktivieren
+- HDMI should show the standby screen with URL, hostname, IP, and QR code
+- The Web UI should be reachable at `http://<pi-ip>:8080/`
+- Open `/sources`, discover senders, and select the desired source
+- Enable `autoStart` in `/settings` if the box should reconnect automatically after boot
 
 ## NDI SDK
 
-Das NDI SDK wird bewusst nicht ins Repo committed.
+The NDI SDK is intentionally not committed to the repository.
 
-Erwarteter lokaler SDK-Pfad:
+Expected local SDK path:
 
 - `/opt/ndi_sdk`
 
-Offizieller Linux-SDK-Tarball:
+Official Linux SDK tarball:
 
 - `https://downloads.ndi.tv/SDK/NDI_SDK_Linux/Install_NDI_SDK_v6_Linux.tar.gz`
 
-Die Install-Skripte erwarten:
+The install/build path expects:
 
-- Header unter `include/Processing.NDI.Lib.h`
-- ARM64-Laufzeitbibliotheken unter `lib/aarch64-rpi4-linux-gnueabi`
+- headers under `include/Processing.NDI.Lib.h`
+- ARM64 runtime libraries under `lib/aarch64-rpi4-linux-gnueabi`
 
-Der Deploy-Pfad kopiert die benoetigten `libndi.so*`-Dateien nach `/opt/ndi-monitor/lib`.
+Deployment copies the required `libndi.so*` files to `/opt/ndi-monitor/lib`.
 
-## Build lokal
+## Local Build
 
-### Voraussetzungen
+### Prerequisites
 
 - Node.js 22+
 - Corepack
@@ -124,9 +124,9 @@ Der Deploy-Pfad kopiert die benoetigten `libndi.so*`-Dateien nach `/opt/ndi-moni
 - `g++`
 - `libsdl2-dev`
 - `libasound2-dev`
-- optional NDI SDK fuer den echten Build
+- optional NDI SDK for real builds
 
-### Web-App
+### Web App
 
 ```bash
 corepack prepare pnpm@10.7.1 --activate
@@ -136,7 +136,7 @@ corepack pnpm --filter @ndi-monitor/web build
 corepack pnpm --filter @ndi-monitor/web test
 ```
 
-### Receiver mit echtem SDK
+### Receiver with the Real SDK
 
 ```bash
 cmake -S apps/receiver -B apps/receiver/build \
@@ -146,7 +146,7 @@ cmake --build apps/receiver/build -j"$(nproc)"
 ctest --test-dir apps/receiver/build --output-on-failure
 ```
 
-### Stub-Build ohne SDK
+### Stub Build without the SDK
 
 ```bash
 cmake -S apps/receiver -B apps/receiver/build -DRECEIVER_ALLOW_STUB_BACKEND=ON
@@ -161,24 +161,24 @@ export NDI_RECEIVER_STUB_SOURCE="Demo Source"
   --scale-mode contain
 ```
 
-## Web-UI Bedienung
+## Web UI
 
 ### Dashboard
 
-- zeigt den aktuellen Zustand des Receivers
-- bietet Sofortaktionen fuer Start, Stop, Restart und Reconnect
-- zeigt die aktuell konfigurierte Quelle und Video-Parameter
+- shows the current receiver state
+- exposes start, stop, restart, and reconnect actions
+- shows the configured source and current runtime video state
 
 ### Sources
 
-- startet Discovery automatisch beim Oeffnen
-- kann Discovery manuell oder per Auto-Refresh ausfuehren
-- speichert die gewaehlte Quelle persistent
-- kann "Use selected source" oder "Use and start"
+- starts discovery automatically on page load
+- supports manual refresh and auto-refresh
+- persists the selected source
+- supports both `Use selected source` and `Use and start now`
 
 ### Settings
 
-Einstellbar sind aktuell:
+Current persistent settings include:
 
 - `server.host`
 - `server.port`
@@ -187,9 +187,9 @@ Einstellbar sind aktuell:
 - `receiver.scaleMode`
 - `receiver.bandwidthMode`
 - `receiver.colorFormat`
-- `receiver.autoStart`
 - `receiver.outputFpsCap`
 - `receiver.lowLatencyMode`
+- `receiver.autoStart`
 - `receiver.reconnect.enabled`
 - `receiver.reconnect.initialDelayMs`
 - `receiver.reconnect.maxDelayMs`
@@ -204,22 +204,29 @@ Einstellbar sind aktuell:
 
 ### Logs
 
-- zeigt Web-Logs
-- zeigt Receiver-Logs
-- bietet Download der Logdateien
+- shows web logs
+- shows native receiver logs
+- supports log download
 
-### Performance-Hinweis
+## Performance Notes
 
-Fuer Raspberry Pi 4 sind aktuell die wichtigsten Kombinationen:
+For Raspberry Pi 4, the most useful combinations right now are:
 
-- `receiver.colorFormat: fastest` oder `uyvy`
+- `receiver.colorFormat: fastest` or `uyvy`
 - `receiver.lowLatencyMode: true`
-- `receiver.audioEnabled: false`, falls Audio nicht gebraucht wird
-- senderseitig lieber `1080p30` als `1080p60`
+- `receiver.audioEnabled: false` if audio is not needed
+- sender-side `1080p30` instead of `1080p60` whenever possible
 
-## REST-API
+Measured locally on the Pi 4 with a `1920x1080 @ 60` sender:
 
-### Endpunkte
+- `rgba + lowLatency=false`: about `168% CPU`, `droppedVideoFrames: 226`, `videoQueueDepth: 10`
+- `fastest + lowLatency=true`: about `121% CPU`, `droppedVideoFrames: 2`, `videoQueueDepth: 4`
+
+Those numbers are workload-specific, but the direction is clear: the faster NDI pixel path plus queue draining materially reduces CPU pressure and visible lag.
+
+## REST API
+
+### Endpoints
 
 - `GET /healthz`
 - `GET /api/status`
@@ -236,7 +243,7 @@ Fuer Raspberry Pi 4 sind aktuell die wichtigsten Kombinationen:
 - `GET /api/logs/download?scope=web|receiver`
 - `GET /api/events`
 
-### Beispiel: Source setzen
+### Example: Switch Source
 
 ```bash
 curl -X POST http://pi-host:8080/api/control/switch-source \
@@ -244,7 +251,7 @@ curl -X POST http://pi-host:8080/api/control/switch-source \
   -d '{"sourceName":"DESKTOP-DS7KLEC (TouchDesigner)"}'
 ```
 
-### Beispiel: Auto-Start aktivieren
+### Example: Enable Auto-Start
 
 ```bash
 curl -X PUT http://pi-host:8080/api/settings \
@@ -254,6 +261,10 @@ curl -X PUT http://pi-host:8080/api/settings \
       "sourceName": "DESKTOP-DS7KLEC (TouchDesigner)",
       "audioEnabled": false,
       "scaleMode": "contain",
+      "bandwidthMode": "highest",
+      "colorFormat": "fastest",
+      "outputFpsCap": 30,
+      "lowLatencyMode": true,
       "autoStart": true,
       "reconnect": {
         "enabled": true,
@@ -265,86 +276,52 @@ curl -X PUT http://pi-host:8080/api/settings \
   }'
 ```
 
-## Services und Skripte
+## Deployment Model
 
-### systemd
+- `ndi-web.service`: Fastify UI, REST API, SSE, config, logs, and receiver supervision
+- `ndi-standby.service`: draws the HDMI standby screen on `tty1`
+- `getty@tty1.service`: disabled in appliance mode so the Linux login prompt does not appear on HDMI
 
-- `ndi-web.service`: Web-Control-Plane und Child-Supervisor
-- `ndi-standby.service`: HDMI-Standby-Screen auf `tty1`
-
-### Skripte
-
-- `scripts/install.sh`: Build, Install, Runtime-Libs, Services, Console-Umschaltung
-- `scripts/update.sh`: Neuinstallation ueber vorhandenen Checkout
-- `scripts/uninstall.sh`: entfernt Dienste und optional Konfig/Logs
-- `scripts/standby-screen.sh`: schreibt den Standby-Text auf `tty1`
-
-## Appliance- / Bootverhalten
-
-Beim Installieren wird:
-
-- `getty@tty1.service` deaktiviert
-- `console=tty1` aus `/boot/cmdline.txt` entfernt
-- `quiet loglevel=3 vt.global_cursor_default=0` hinzugefuegt
-- `ndi-standby.service` aktiviert
-
-Das sorgt dafuer, dass der normale Linux-Login-Prompt nicht mehr ueber dem HDMI-Bild liegt.
-
-Wichtig:
-
-- fuer die Boot-Console-Aenderung ist nach der ersten Installation ein Reboot noetig
-- waehrend der Receiver nicht laeuft, zeigt `tty1` den Standby-Screen mit Web-UI-Adresse
-
-## Exit-Codes des nativen Receivers
-
-- `0`: sauber beendet
-- `2`: ungueltige CLI-Argumente
-- `3`: Initialisierungsfehler
-- `4`: Quelle nicht verfuegbar / Disconnect ohne erfolgreiche Wiederherstellung
-- `5`: NDI SDK im Produktionspfad nicht verfuegbar
-- `6`: Renderer-Initialisierung fehlgeschlagen
-- `7`: fataler Empfangsfehler
+The native receiver is intentionally not a separate `systemd` service. The web service is the single control plane and owns the receiver child process.
 
 ## Troubleshooting
 
-### Web-UI laedt, aber Buttons machen nichts
+### No NDI Sources Appear
 
-- Browser hart neu laden
-- `Ctrl+Shift+R` oder mobilen Tab komplett neu oeffnen
-- `GET /healthz` pruefen
-- `tail -f /var/log/ndi-receiver/web.log`
+- check network connectivity
+- check `avahi-daemon`
+- verify that the sender is visible on the same LAN
 
-### Discovery findet keine Quellen
+### The Receiver Runs but HDMI Shows No Video
 
-- `/sources` oeffnen und Discovery manuell ausfuehren
-- pruefen, ob der Sender wirklich NDI im LAN announced
-- `avahi-daemon` und Netzverbindung pruefen
-- `./apps/receiver/build/ndi-receiver discover --json --timeout-ms 4000`
+```bash
+curl http://127.0.0.1:8080/api/status
+cat /var/lib/ndi-receiver/receiver-status.json
+tail -f /var/log/ndi-receiver/receiver.log
+```
 
-### Receiver ist "running", aber HDMI bleibt leer
+Check for:
 
-- `sudo systemctl status ndi-web.service`
-- `cat /var/lib/ndi-receiver/receiver-status.json` fuer den letzten persistierten Snapshot
-- `tail -f /var/log/ndi-receiver/receiver.log`
-- `sudo journalctl -u ndi-web.service -b`
-- pruefen, ob `/dev/dri/*` vorhanden ist
-- nach Erstinstallation einmal rebooten
+- `connectionState: connected`
+- `videoActive: true`
+- valid `resolution` and `fps`
+- working DRM device handles under `/dev/dri/*`
 
-### Auf HDMI steht noch ein Login-Prompt
+### The Login Prompt Reappears on HDMI
 
-- `sudo systemctl status getty@tty1.service ndi-standby.service`
-- pruefen, ob `/boot/cmdline.txt` noch `console=tty1` enthaelt
-- nach dem ersten Installationslauf rebooten
+```bash
+sudo systemctl status getty@tty1.service ndi-standby.service
+cat /boot/cmdline.txt
+```
 
-## Betriebsdokumentation
+Expected:
 
-- Deployment: [DEPLOYMENT_PI5.md](/home/pi/ndi-monitor/docs/DEPLOYMENT_PI5.md)
-- Betrieb: [OPERATIONS.md](/home/pi/ndi-monitor/docs/OPERATIONS.md)
-- Architektur: [ARCHITECTURE.md](/home/pi/ndi-monitor/docs/ARCHITECTURE.md)
+- `getty@tty1.service`: inactive
+- `ndi-standby.service`: active (exited)
+- `/boot/cmdline.txt` without `console=tty1`
 
-## Offene Punkte und Risiken
+## Open Risks
 
-- HDMI-Audio ist strukturell vorhanden, sollte aber auf dem Zielgeraet mit echtem Audio-Signal separat getestet werden
-- SDL2/KMSDRM kann je nach Display-Handshake, Kabel und Firmware empfindlich reagieren
-- fuer harte Produktion waeren Log-Rotation und eventuell ein dedizierter Health-/Watchdog-Mechanismus noch sinnvoll
-- die aktuelle NDI-SDK-Lizenz schliesst fixed-purpose Appliances und Embedded-/Linux-Geraete in der Standardlizenz explizit aus; fuer ein kommerzielles Produkt kann ein separater Vertrag mit NDI erforderlich sein
+- HDMI audio still needs final target-side validation with real signal and display hardware
+- SDL2/KMSDRM behavior can vary by display, cable, adapter, and firmware combination
+- Large-scale deployments would still benefit from stronger monitoring and explicit log rotation policy

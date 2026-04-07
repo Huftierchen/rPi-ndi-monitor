@@ -343,6 +343,7 @@ class NdiSdkBackend final : public INdiBackend {
       return;
     }
 
+    // Prefer the newest frame when the Pi falls behind to keep latency and queue growth bounded.
     while (true) {
       NDIlib_video_frame_v2_t next_video {};
       NDIlib_audio_frame_v3_t next_audio {};

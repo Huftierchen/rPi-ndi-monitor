@@ -1,13 +1,13 @@
-# Betrieb
+# Operations
 
-## Wichtige Dateien
+## Important Files
 
-- Konfiguration: `/etc/ndi-receiver/config.yaml`
-- Status-Snapshot: `/var/lib/ndi-receiver/receiver-status.json`
-- Web-Logs: `/var/log/ndi-receiver/web.log`
-- Receiver-Logs: `/var/log/ndi-receiver/receiver.log`
+- config: `/etc/ndi-receiver/config.yaml`
+- status snapshot: `/var/lib/ndi-receiver/receiver-status.json`
+- web log: `/var/log/ndi-receiver/web.log`
+- receiver log: `/var/log/ndi-receiver/receiver.log`
 
-## Wichtige Services
+## Important Services
 
 ```bash
 sudo systemctl status ndi-web.service
@@ -15,41 +15,41 @@ sudo systemctl status ndi-standby.service
 sudo systemctl status getty@tty1.service
 ```
 
-Was sie tun:
+What they do:
 
-- `ndi-web.service`: Web-Control-Plane, API, UI, Supervisor fuer den nativen Receiver
-- `ndi-standby.service`: schreibt beim Boot den Idle-/Standby-Screen auf `tty1`
-- `getty@tty1.service`: sollte im Appliance-Betrieb deaktiviert sein
+- `ndi-web.service`: Web control plane, API, UI, and supervisor for the native receiver
+- `ndi-standby.service`: draws the idle/standby screen on `tty1` during boot
+- `getty@tty1.service`: should remain disabled in appliance mode
 
-## Typischer Betriebsablauf
+## Typical Runtime Flow
 
-1. Pi bootet in `multi-user.target`
-2. `ndi-standby.service` schreibt den Standby-Screen auf HDMI
-3. `ndi-web.service` startet die Web-Control-Plane
-4. Konfiguration wird geladen und validiert
-5. Discovery und UI stehen bereit
-6. bei `autoStart` oder manuellem Start wird der Receiver als Child-Prozess gestartet
-7. der Receiver sendet Live-Status-Events und schreibt strukturierte Logs
-8. bei Disconnect oder Crash greifen Reconnect und Restart
+1. the Pi boots into `multi-user.target`
+2. `ndi-standby.service` draws the standby screen on HDMI
+3. `ndi-web.service` starts the control plane
+4. configuration is loaded and validated
+5. discovery and UI become available
+6. with `autoStart` enabled or after a manual start, the receiver child process is launched
+7. the receiver emits live status events and structured logs
+8. reconnect and restart logic handles disconnects or crashes
 
-Der Standby-Screen zeigt:
+The standby screen shows:
 
-- Web-UI-URL
-- QR-Code fuer die Web-UI
-- Hostname und Bonjour-Name
-- aktuelle IP-Adresse
-- konfigurierte Quelle
+- Web UI URL
+- QR code for the Web UI
+- hostname and Bonjour name
+- current IP address
+- configured source
 
-Nach `Stop` oder Receiver-Exit zeichnet der Web-Supervisor denselben Screen erneut.
+After `Stop` or receiver exit, the web supervisor redraws the same standby screen.
 
-## Receiver starten und stoppen
+## Start and Stop the Receiver
 
-Ueber die Web-UI:
+From the Web UI:
 
-- Dashboard: `Start receiver`, `Stop`, `Restart`, `Reconnect`
-- Sources: `Use and start`
+- dashboard: `Start output`, `Stop output`, `Restart receiver`, `Reconnect source`
+- sources page: `Use and start now`
 
-Ueber die API:
+Through the API:
 
 ```bash
 curl -X POST http://127.0.0.1:8080/api/control/start
@@ -60,12 +60,12 @@ curl -X POST http://127.0.0.1:8080/api/control/reconnect
 
 ## Discovery
 
-Discovery laeuft als separater kurzer nativer Prozess. Eine laufende Wiedergabe wird dadurch nicht unterbrochen.
+Discovery runs as a short-lived native process. Active playback is not interrupted.
 
-Web-UI:
+Web UI:
 
-- `/sources` startet Discovery beim Oeffnen automatisch
-- manueller Refresh ist jederzeit moeglich
+- `/sources` starts discovery automatically when opened
+- manual refresh is always available
 
 CLI:
 
@@ -73,16 +73,16 @@ CLI:
 /opt/ndi-monitor/apps/receiver/build/ndi-receiver discover --json --timeout-ms 4000
 ```
 
-## Status beobachten
+## Observe Status
 
 ```bash
 curl http://127.0.0.1:8080/api/status
 cat /var/lib/ndi-receiver/receiver-status.json
 ```
 
-Die API ist die massgebliche Live-Sicht. Die JSON-Datei ist nur noch der letzte persistierte Snapshot und kann deshalb aelter sein als der API-Status.
+The API is the authoritative live view. The JSON file is only the latest persisted snapshot and can therefore be older than the API state.
 
-Wichtige Statusfelder:
+Important status fields:
 
 - `lifecycle`
 - `connectionState`
@@ -94,10 +94,12 @@ Wichtige Statusfelder:
 - `lastError`
 - `restartCount`
 - `desiredRunning`
+- `droppedVideoFrames`
+- `videoQueueDepth`
 
 ## Logs
 
-### Datei-Logs
+### File Logs
 
 ```bash
 tail -f /var/log/ndi-receiver/web.log
@@ -112,68 +114,69 @@ sudo journalctl -u ndi-web.service -b
 sudo journalctl -u ndi-standby.service -b
 ```
 
-### Web-UI
+### Web UI
 
 - `/logs`
-- Download der Logdateien ueber die entsprechenden Buttons
+- download buttons for both log scopes
 
-## Konfiguration aendern
+## Change Configuration
 
-Persistente Konfigurationsdatei:
+Persistent config file:
 
 - `/etc/ndi-receiver/config.yaml`
 
-Aenderungen koennen erfolgen:
+Changes can be made:
 
-- ueber `/settings`
-- ueber `/sources`
-- per API
-- im Notfall direkt per SSH
+- through `/settings`
+- through `/sources`
+- via API
+- directly over SSH if necessary
 
-Nach Speichern ueber die Web-UI wird:
+After saving through the Web UI:
 
-- die Konfiguration validiert
-- bei laufendem Receiver ein kontrollierter Neustart ausgeloest
+- configuration is validated
+- if the receiver is active, a controlled restart is triggered
 
-## Typische Einstellungen
+## Typical Settings
 
-### Sinnvoll fuer Produktion
+### Sensible Production Defaults
 
-- `receiver.sourceName`: fester NDI-Sender
+- `receiver.sourceName`: fixed sender name
 - `receiver.autoStart: true`
 - `receiver.reconnect.enabled: true`
-- `receiver.scaleMode: contain` oder `cover`
+- `receiver.scaleMode: contain` or `cover`
 - `receiver.colorFormat: fastest`
 - `receiver.lowLatencyMode: true`
 - `logging.level: info`
 - `display.fullscreen: true`
 
-### Wenn Audio Probleme macht
+### If Audio Causes Problems
 
 - `receiver.audioEnabled: false`
 
-### Wenn Full-HD auf dem Pi 4 zu schwer wird
+### If Full HD Is Too Heavy on a Pi 4
 
-- `receiver.colorFormat: fastest` oder `uyvy`
+- `receiver.colorFormat: fastest` or `uyvy`
 - `receiver.lowLatencyMode: true`
 - `receiver.outputFpsCap: 30`
-- senderseitig nach Moeglichkeit auf `30 fps` reduzieren
+- reduce the sender to `30 fps` if possible
 
-### Wenn eine Quelle langsam wieder auftaucht
+### If a Source Comes Back Slowly
 
-- `receiver.reconnect.initialDelayMs` und `maxDelayMs` erhoehen
+- increase `receiver.reconnect.initialDelayMs`
+- increase `receiver.reconnect.maxDelayMs`
 
-## Reboot nach Erstinstallation
+## Reboot After First Install
 
-Ein Reboot ist nach der ersten Installation empfohlen, weil:
+A reboot is recommended after first install because:
 
-- `/boot/cmdline.txt` angepasst wird
-- `console=tty1` entfernt wird
-- die HDMI-Boot-Konsole ruhig werden soll
+- `/boot/cmdline.txt` is changed
+- `console=tty1` is removed
+- the HDMI boot console should become quiet and appliance-like
 
-## Wenn der Receiver laeuft, aber kein Bild sichtbar ist
+## If the Receiver Runs but No Video Is Visible
 
-Pruefen:
+Check:
 
 ```bash
 curl http://127.0.0.1:8080/api/status
@@ -182,36 +185,36 @@ tail -f /var/log/ndi-receiver/receiver.log
 sudo ls -l /proc/$(pgrep -f ndi-receiver | head -n1)/fd
 ```
 
-Worauf achten:
+Things to verify:
 
-- `connectionState` sollte `connected` sein
-- `videoActive` sollte `true` sein
-- `resolution` und `fps` sollten sinnvoll gesetzt sein
-- offene Handles auf `/dev/dri/card*` und `/dev/dri/renderD128`
+- `connectionState` should be `connected`
+- `videoActive` should be `true`
+- `resolution` and `fps` should be populated
+- DRM handles should be open on `/dev/dri/card*` and `/dev/dri/renderD128`
 
-## Wenn auf HDMI der Login-Prompt wieder auftaucht
+## If the Login Prompt Reappears on HDMI
 
-Pruefen:
+Check:
 
 ```bash
 sudo systemctl status getty@tty1.service ndi-standby.service
 cat /boot/cmdline.txt
 ```
 
-Erwartung:
+Expected:
 
 - `getty@tty1.service`: `inactive`
 - `ndi-standby.service`: `active (exited)`
-- `/boot/cmdline.txt` ohne `console=tty1`
+- `/boot/cmdline.txt` without `console=tty1`
 
 ## Graceful Shutdown
 
-Bei `SIGTERM`:
+On `SIGTERM`:
 
-- Web-Dienst schreibt Shutdown-Log
-- Child-Prozess bekommt `SIGTERM`
-- nach Timeout folgt `SIGKILL`
-- `systemd` sieht einen sauberen Dienst-Exit
+- the web service writes a shutdown log entry
+- the child process receives `SIGTERM`
+- after timeout, `SIGKILL` follows
+- `systemd` sees a clean service exit if shutdown completes in time
 
 ## Update
 
@@ -222,8 +225,8 @@ export NDI_SDK_DIR=/opt/ndi_sdk
 sudo ./scripts/update.sh
 ```
 
-## Offene Betriebsrisiken
+## Remaining Operational Risks
 
-- HDMI-Audio sollte auf dem finalen Zielsystem mit echtem Audio-Signal separat validiert werden
-- SDL2/KMSDRM kann je nach Display, Kabel, Adapter und Firmware variieren
-- fuer groessere Installationen waeren Logrotation und explizites Monitoring noch sinnvoll
+- HDMI audio should still be validated on the final target system with a real signal path
+- SDL2/KMSDRM behavior can still vary by display, cable, adapter, and firmware combination
+- larger deployments would benefit from explicit monitoring and more formal log rotation policy

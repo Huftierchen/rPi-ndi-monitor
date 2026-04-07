@@ -1,33 +1,33 @@
-# Architektur
+# Architecture
 
-## Zielbild
+## Target Shape
 
-Das System ist als headless NDI-Appliance fuer Raspberry Pi 5 auf Raspberry Pi OS Lite ausgelegt. Es gibt genau eine Control Plane:
+The system is designed as a headless NDI appliance for Raspberry Pi running Raspberry Pi OS Lite. There is exactly one control plane:
 
-- `apps/web`: Fastify-basierter Node.js-Dienst fuer UI, REST-API, SSE, Konfiguration, Logging und Prozessaufsicht
-- `apps/receiver`: native C++17-Anwendung fuer Discovery, NDI-Empfang, Reconnect, HDMI-Rendering und optionale Audioausgabe
+- `apps/web`: Fastify-based Node.js service for UI, REST API, SSE, configuration, logging, and process supervision
+- `apps/receiver`: native C++17 application for discovery, NDI receive, reconnect handling, HDMI rendering, and optional audio output
 
-Der Pi bootet ohne Desktop in `multi-user.target`. Die Web-Control-Plane laeuft als `ndi-web.service`. Der eigentliche Receiver ist kein eigener `systemd`-Dienst, sondern ein Child-Prozess des Web-Dienstes. So bleibt die komplette Bedienung an genau einer Stelle.
+The Pi boots into `multi-user.target` without a desktop. The web control plane runs as `ndi-web.service`. The actual receiver is not a separate `systemd` unit; it is a child process of the web service. That keeps the full appliance state under one service boundary.
 
-## Reale Laufzeit-Topologie
+## Runtime Topology
 
-### Dienste
+### Services
 
-- `ndi-web.service`: Hauptdienst fuer HTTP, UI, API, SSE, Config, Logs und Receiver-Supervision
-- `ndi-standby.service`: schreibt im Idle-Zustand den Appliance-Screen mit Web-UI-QR-Code auf `tty1`
-- `getty@tty1.service`: wird im Appliance-Betrieb deaktiviert, damit kein Login-Prompt auf HDMI erscheint
+- `ndi-web.service`: main service for HTTP, UI, API, SSE, config, logs, and receiver supervision
+- `ndi-standby.service`: draws the appliance standby screen with the Web UI QR code on `tty1`
+- `getty@tty1.service`: disabled in appliance mode so HDMI does not show a login prompt
 
-### Produktionspfade
+### Production Paths
 
-- Installation: `/opt/ndi-monitor`
-- Konfiguration: `/etc/ndi-receiver/config.yaml`
-- Status-Snapshot: `/var/lib/ndi-receiver/receiver-status.json`
-- Logdateien: `/var/log/ndi-receiver/web.log`, `/var/log/ndi-receiver/receiver.log`
-- fluechtige Runtime: `/run/ndi-monitor`
+- install root: `/opt/ndi-monitor`
+- config: `/etc/ndi-receiver/config.yaml`
+- status snapshot: `/var/lib/ndi-receiver/receiver-status.json`
+- logs: `/var/log/ndi-receiver/web.log`, `/var/log/ndi-receiver/receiver.log`
+- volatile runtime: `/run/ndi-monitor`
 
-### Service-Umgebung
+### Service Environment
 
-`ndi-web.service` setzt fuer den Produktionsbetrieb unter anderem:
+`ndi-web.service` sets these production-time variables among others:
 
 - `NDI_MONITOR_CONFIG_PATH=/etc/ndi-receiver/config.yaml`
 - `NDI_MONITOR_RUNTIME_ROOT=/var/lib/ndi-receiver`
@@ -38,142 +38,142 @@ Der Pi bootet ohne Desktop in `multi-user.target`. Die Web-Control-Plane laeuft 
 - `SDL_AUDIODRIVER=alsa`
 - `LD_LIBRARY_PATH=/opt/ndi-monitor/lib`
 
-Damit bekommt der native Receiver einen sauberen, desktopfreien KMS/DRM- und HDMI-Audio-Pfad.
+That gives the native receiver a desktop-free KMS/DRM path plus HDMI audio output.
 
-## Architekturentscheidungen
+## Major Architecture Decisions
 
-### Fastify statt Express
+### Fastify Instead of Express
 
-Fastify wurde gewaehlt, weil es auf dem Pi leichtgewichtig bleibt, gute TypeScript-Typisierung bietet und SSR, REST und Streaming ohne schweres Frontend-Framework traegt.
+Fastify was chosen because it stays lightweight on the Pi, has solid TypeScript support, and handles SSR, REST, and streaming without requiring a heavy frontend framework.
 
-### SSE statt WebSocket
+### SSE Instead of WebSocket
 
-Die Datenrichtung ist fast ausschliesslich serverseitig: Status, Logs und Discovery-Ergebnisse werden zum Browser geschoben. Dafuer reicht SSE aus und reduziert die Komplexitaet gegenueber WebSockets.
+The data flow is mostly server-to-client: status, logs, and discovery results are pushed to the browser. SSE is simpler than WebSockets for this use case and keeps the implementation smaller.
 
-### YAML statt JSON fuer Runtime-Konfiguration
+### YAML Instead of JSON for Runtime Config
 
-Die Appliance wird oft per SSH oder direkt auf dem Geraet administriert. YAML ist fuer Operatoren lesbarer. Gleichzeitig bleibt die Anwendung strikt: ungueltige Werte werden validiert und nicht still uebernommen.
+The appliance is expected to be operated over SSH or directly on the device. YAML is easier for operators to inspect and edit. The application still validates strictly and rejects invalid values instead of silently accepting them.
 
-### Receiver als Child-Prozess des Web-Dienstes
+### Receiver as a Child Process of the Web Service
 
-Diese Entscheidung folgt bewusst der "single control plane":
+This follows the single-control-plane model on purpose:
 
-- Start, Stop, Restart, Reconnect und Source-Switch laufen ueber genau einen Prozess
-- API und UI kennen immer den gewuenschten und den aktuellen Zustand
-- Exit-Codes, Logs und Status koennen direkt korreliert werden
-- Discovery kann separat ausgefuehrt werden, ohne den laufenden Wiedergabepfad zu stoeren
+- start, stop, restart, reconnect, and source switch all run through one process
+- API and UI can always describe both desired and actual state
+- exit codes, logs, and runtime state can be correlated directly
+- discovery can run independently without disrupting active playback
 
-`systemd` ueberwacht nur `ndi-web.service`. Der Web-Dienst ueberwacht den nativen Receiver.
+`systemd` supervises only `ndi-web.service`. The web service supervises the native receiver.
 
-### Discovery als nativer CLI-Unterbefehl
+### Discovery as a Native CLI Subcommand
 
-Discovery wird mit einem kurzen separaten nativen Prozess (`ndi-receiver discover --json`) ausgefuehrt. Node.js muss dadurch nicht gegen das NDI-SDK linken, und eine laufende Wiedergabe bleibt unberuehrt.
+Discovery is executed as a short-lived native process with `ndi-receiver discover --json`. Node.js therefore does not need to link against the NDI SDK, and active playback stays untouched.
 
-### Live-Status ueber Prozess-Events
+### Live Status over Process Events
 
-Der Receiver emittiert Status- und Lifecycle-Ereignisse auf `stdout` und strukturierte Logzeilen auf `stdout` beziehungsweise `stderr`. Die Web-Control-Plane haelt den aktuellen Receiver-Status deshalb im RAM und verteilt ihn direkt an UI, API und SSE.
+The receiver emits status and lifecycle events on `stdout` and structured log lines on `stdout` and `stderr`. The web control plane keeps the current receiver state in memory and republishes it to the UI, API, and SSE clients.
 
-Die Statusdatei bleibt bewusst erhalten, aber nur noch als seltener persistierter Snapshot bei wichtigen Uebergaengen wie Start, Disconnect, Fatal Error oder sauberem Stop. Das reduziert SD-Karten-I/O deutlich, ohne den letzten bekannten Zustand fuer Diagnose komplett zu verlieren.
+The JSON status file still exists, but only as an infrequent persisted snapshot during important transitions such as startup, disconnect, fatal error, or clean stop. That reduces SD-card I/O while preserving a last-known state for diagnosis.
 
-## Daten- und Steuerfluss
+## Data and Control Flow
 
-### Web-UI
+### Web UI
 
-Die Web-Oberflaeche ist serverseitig gerendert und bewusst schlank gehalten:
+The Web UI is intentionally server-rendered and lightweight:
 
-- Dashboard fuer Sofortaktionen und Betriebsstatus
-- Sources-Seite fuer Discovery, Auswahl und direkten Start
-- Settings-Seite fuer persistente Konfiguration
-- Logs-Seite fuer Web- und Receiver-Logs
-- About-Seite fuer Kurzbeschreibung und Betriebsinfos
+- dashboard for immediate controls and live runtime state
+- sources page for discovery, selection, and direct start
+- settings page for persistent configuration
+- logs page for web and receiver logs
+- about page for appliance overview and runtime paths
 
-Interaktive Aktionen gehen ueber REST-Endpunkte. Live-Updates kommen primaer ueber SSE, mit periodischem Polling als Browser-Fallback.
+Interactive actions go through REST endpoints. Live updates are delivered primarily over SSE, with browser fallback polling.
 
 ### Control Flow
 
-1. Browser sendet REST-Request an `apps/web`
-2. Config-Service validiert und persistiert Aenderungen in YAML
-3. Receiver-Supervisor startet, stoppt oder restarted den nativen Prozess
-4. Receiver emittiert Live-Status und Logs
-5. Web-Dienst spiegelt Status und Logs wieder in UI, API und SSE
+1. the browser sends a REST request to `apps/web`
+2. the config service validates and persists YAML changes
+3. the receiver supervisor starts, stops, or restarts the native process
+4. the receiver emits live status and logs
+5. the web service mirrors that state back into UI, API, and SSE
 
 ### Discovery Flow
 
-1. UI oder API fordert Discovery an
-2. Web-Dienst startet einen kurzen nativen `discover`-Prozess
-3. JSON-Ergebnis wird geparst und an UI/API zurueckgegeben
-4. Ein laufender `run`-Prozess bleibt dabei unberuehrt
+1. UI or API requests discovery
+2. the web service starts a short-lived native `discover` process
+3. the JSON result is parsed and returned to UI/API
+4. any running `run` process remains untouched
 
-## Aufbau der nativen Komponente
+## Native Receiver Structure
 
-Der Receiver ist in klar getrennte Bausteine zerlegt:
+The receiver is split into clear building blocks:
 
-- CLI-Parser fuer `run` und `discover`
-- Logger mit Text- und optionalem JSON-Format
-- StatusWriter fuer atomische JSON-Snapshots
-- NDI-Backend-Schnittstelle fuer echtes SDK oder Stub-Build
-- Renderer-Schnittstelle fuer SDL2/KMSDRM beziehungsweise Headless-Stub
-- `ReceiverApp` fuer Signal-Handling, Reconnect-Loop und Exit-Codes
+- CLI parser for `run` and `discover`
+- logger with text and optional JSON output
+- `StatusWriter` for atomic JSON snapshots
+- NDI backend interface for either the real SDK or the stub build
+- renderer interface for SDL2/KMSDRM or a headless stub
+- `ReceiverApp` for signal handling, reconnect looping, status emission, and exit codes
 
-Fuer die Pi-Laufzeitperformance nutzt der aktuelle Receiver zusaetzlich:
+For Pi runtime performance, the current receiver also includes:
 
-- konfigurierbare NDI-Farbformate (`rgba`, `uyvy`, `fastest`)
-- Renderer-Texturen passend zum echten eingehenden Pixel-Layout
-- optionalen Low-Latency-Modus, der gepufferte Videoframes bis zum neuesten Stand entleert
+- configurable NDI color formats (`rgba`, `uyvy`, `fastest`)
+- renderer textures chosen to match the actual incoming pixel layout
+- an optional low-latency mode that drains queued video frames down to the newest frame
 
-Diese Struktur erlaubt lokale Tests ohne echtes SDK, ohne die Produktionsschnittstelle zu verbiegen.
+That structure allows real implementation without distorting the interface just to support local non-SDK testing.
 
-## Appliance-Verhalten auf HDMI
+## HDMI Appliance Behavior
 
-Der Pi soll sich wie ein Geraet und nicht wie ein Linux-Loginhost verhalten. Deshalb macht der Installationspfad zusaetzlich:
+The Pi should feel like a device, not like a Linux login host. The install path therefore also:
 
-- `getty@tty1.service` deaktivieren
-- `console=tty1` aus `/boot/cmdline.txt` entfernen
-- `quiet loglevel=3 vt.global_cursor_default=0` setzen
-- `ndi-standby.service` aktivieren
+- disables `getty@tty1.service`
+- removes `console=tty1` from `/boot/cmdline.txt`
+- adds `quiet loglevel=3 vt.global_cursor_default=0`
+- enables `ndi-standby.service`
 
-Ergebnis:
+Result:
 
-- waehrend der Receiver nicht laeuft, zeigt HDMI den Standby-Screen mit Web-UI-URL, QR-Code, Hostname und IP
-- sobald der Receiver startet, uebernimmt der KMS/DRM-Renderer den Bildschirm
-- kein sichtbarer Desktop, kein Mauszeiger, kein Login-Prompt
+- while the receiver is not running, HDMI shows the standby screen with URL, QR code, hostname, and IP
+- once the receiver starts, the KMS/DRM renderer takes over the display
+- no visible desktop, no mouse cursor, no login prompt
 
-## Fehler- und Restart-Verhalten
+## Failure and Restart Behavior
 
-- Wenn die Quelle verschwindet, bleibt der Receiver-Prozess aktiv und faehrt den Reconnect-Backoff
-- Wenn der Receiver unerwartet endet, entscheidet der Web-Supervisor anhand der Konfiguration ueber Neustart
-- Wenn der Web-Dienst abstuerzt, startet `systemd` ihn erneut
-- Bei `SIGTERM` werden Web-Dienst und Child-Prozess geordnet beendet
-- Discovery beeinflusst den laufenden Wiedergabepfad nicht
+- if the source disappears, the receiver process stays alive and runs its reconnect backoff loop
+- if the receiver exits unexpectedly, the web supervisor decides whether to restart it based on config
+- if the web service crashes, `systemd` restarts it
+- on `SIGTERM`, both the web service and child process are shut down in order
+- discovery does not interfere with the active output path
 
-## Rechte und Geraetezugriff
+## Permissions and Device Access
 
-Der Produktionsbenutzer `ndi-monitor` laeuft mit zusaetzlichen Gruppen:
+The production user `ndi-monitor` runs with these extra groups:
 
 - `video`
 - `audio`
 - `render`
 
-Damit kann der Receiver auf DRM/KMS-Devices und HDMI-Audio zugreifen, ohne als `root` zu laufen.
+That allows DRM/KMS and HDMI audio access without running the service as `root`.
 
-## Entwicklungs- und Testmodus
+## Development and Test Mode
 
-Ohne echtes NDI-SDK kann der Receiver als Stub gebaut werden. Die Struktur bleibt gleich:
+Without the real NDI SDK, the receiver can be built in stub mode while preserving the same structure:
 
-- gleiche CLI
-- gleicher Status-Snapshot
-- gleiche Supervisor-Integration
-- gleiche Web-API
+- same CLI
+- same status snapshot contract
+- same supervisor integration
+- same Web API
 
-Entwicklungsmodus faellt fuer Laufzeitdaten automatisch auf repo-lokale Pfade unter `runtime/` zurueck.
+Development mode automatically falls back to repo-local runtime paths under `runtime/`.
 
-## Erweiterbarkeit
+## Extensibility
 
-Die erste Version ist bewusst fuer LAN-Betrieb ohne verpflichtende Authentifizierung ausgelegt. Die Web-Schicht ist aber so geschnitten, dass spaeter moeglich sind:
+The first version is intentionally built for LAN usage without mandatory authentication. The web layer is still structured so later additions remain straightforward:
 
-- Auth-Middleware in Fastify
-- Reverse-Proxy-Absicherung
-- weitere Diagnose-Endpunkte
-- zusaetzliche Display- oder Audio-Optionen
+- Fastify auth middleware
+- reverse-proxy protection
+- additional diagnostic endpoints
+- more display or audio options
 
-Die Control Plane, das Prozessmodell und das native Rendering muessen dafuer nicht neu gedacht werden.
+The control plane, process model, and native rendering path do not need to be redesigned for those additions.
