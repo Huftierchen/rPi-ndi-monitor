@@ -23,6 +23,8 @@ struct ReceiverStatusSnapshot {
   std::string updated_at;
 };
 
+std::string serialize_status_snapshot_json(const ReceiverStatusSnapshot& snapshot);
+
 class StatusWriter {
  public:
   explicit StatusWriter(std::string path);

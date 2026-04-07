@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <iostream>
 #include <memory>
 #include <thread>
 
@@ -10,6 +11,16 @@
 #include "render/renderer.h"
 
 namespace ndi_receiver {
+
+namespace {
+
+void emit_status_event(const ReceiverStatusSnapshot& snapshot) {
+  std::string payload = serialize_status_snapshot_json(snapshot);
+  payload.erase(std::remove(payload.begin(), payload.end(), '\n'), payload.end());
+  std::cout << "EVENT {\"type\":\"status\",\"payload\":" << payload << "}" << std::endl;
+}
+
+}  // namespace
 
 ReceiverApp::ReceiverApp(RunOptions options, Logger logger, StatusWriter status_writer,
                          std::atomic<bool>& stop_requested)
@@ -176,7 +187,10 @@ void ReceiverApp::UpdateStatus(const std::string& lifecycle, const std::string& 
     return;
   }
 
-  status_writer_.Write(status_);
+  emit_status_event(status_);
+  if (force_write && !status_writer_.path().empty()) {
+    status_writer_.Write(status_);
+  }
   last_written_status_ = status_;
   last_status_write_at_ = now;
   has_written_status_ = true;

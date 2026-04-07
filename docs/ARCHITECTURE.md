@@ -21,7 +21,7 @@ Der Pi bootet ohne Desktop in `multi-user.target`. Die Web-Control-Plane laeuft 
 
 - Installation: `/opt/ndi-monitor`
 - Konfiguration: `/etc/ndi-receiver/config.yaml`
-- Laufzeitstatus: `/var/lib/ndi-receiver/receiver-status.json`
+- Status-Snapshot: `/var/lib/ndi-receiver/receiver-status.json`
 - Logdateien: `/var/log/ndi-receiver/web.log`, `/var/log/ndi-receiver/receiver.log`
 - fluechtige Runtime: `/run/ndi-monitor`
 
@@ -69,14 +69,11 @@ Diese Entscheidung folgt bewusst der "single control plane":
 
 Discovery wird mit einem kurzen separaten nativen Prozess (`ndi-receiver discover --json`) ausgefuehrt. Node.js muss dadurch nicht gegen das NDI-SDK linken, und eine laufende Wiedergabe bleibt unberuehrt.
 
-### Statusdatei plus strukturierte Logs
+### Live-Status ueber Prozess-Events
 
-Der Receiver schreibt periodisch eine JSON-Statusdatei und emittiert strukturierte Logzeilen auf `stdout` beziehungsweise `stderr`. Die Web-Control-Plane nutzt beides:
+Der Receiver emittiert Status- und Lifecycle-Ereignisse auf `stdout` und strukturierte Logzeilen auf `stdout` beziehungsweise `stderr`. Die Web-Control-Plane haelt den aktuellen Receiver-Status deshalb im RAM und verteilt ihn direkt an UI, API und SSE.
 
-- Statusdatei fuer den letzten konsistenten Snapshot
-- Prozessausgabe fuer Live-Logs, Fehlerdiagnose und Ereignisse
-
-Das reduziert Race-Conditions zwischen UI, API und Prozessaufsicht.
+Die Statusdatei bleibt bewusst erhalten, aber nur noch als seltener persistierter Snapshot bei wichtigen Uebergaengen wie Start, Disconnect, Fatal Error oder sauberem Stop. Das reduziert SD-Karten-I/O deutlich, ohne den letzten bekannten Zustand fuer Diagnose komplett zu verlieren.
 
 ## Daten- und Steuerfluss
 
@@ -97,7 +94,7 @@ Interaktive Aktionen gehen ueber REST-Endpunkte. Live-Updates kommen primaer ueb
 1. Browser sendet REST-Request an `apps/web`
 2. Config-Service validiert und persistiert Aenderungen in YAML
 3. Receiver-Supervisor startet, stoppt oder restarted den nativen Prozess
-4. Receiver schreibt Status und Logs
+4. Receiver emittiert Live-Status und Logs
 5. Web-Dienst spiegelt Status und Logs wieder in UI, API und SSE
 
 ### Discovery Flow
@@ -158,7 +155,7 @@ Damit kann der Receiver auf DRM/KMS-Devices und HDMI-Audio zugreifen, ohne als `
 Ohne echtes NDI-SDK kann der Receiver als Stub gebaut werden. Die Struktur bleibt gleich:
 
 - gleiche CLI
-- gleiche Statusdatei
+- gleicher Status-Snapshot
 - gleiche Supervisor-Integration
 - gleiche Web-API
 

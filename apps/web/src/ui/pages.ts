@@ -441,7 +441,7 @@ export function renderAboutPage(config: AppConfig): string {
         <h2>Runtime paths</h2>
         <ul class="list">
           <li>Config: <code>/etc/ndi-receiver/config.yaml</code></li>
-          <li>Status: <code>/var/lib/ndi-receiver/receiver-status.json</code></li>
+          <li>Status snapshot: <code>/var/lib/ndi-receiver/receiver-status.json</code></li>
           <li>Web log: <code>/var/log/ndi-receiver/web.log</code></li>
           <li>Receiver log: <code>/var/log/ndi-receiver/receiver.log</code></li>
           <li>Install root: <code>/opt/ndi-monitor</code></li>

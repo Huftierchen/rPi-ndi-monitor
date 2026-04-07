@@ -1,4 +1,4 @@
-import { access, readFile, unlink } from "node:fs/promises";
+import { access } from "node:fs/promises";
 import { constants } from "node:fs";
 import { spawn, type ChildProcess } from "node:child_process";
 import { createInterface } from "node:readline";
@@ -22,13 +22,13 @@ interface ReceiverEvent {
   type: string;
   message?: string;
   sourceName?: string;
+  payload?: ReceiverStatusFile;
 }
 
 export class ReceiverSupervisor {
   private child: ChildProcess | null = null;
   private status: ReceiverRuntimeStatus;
   private discoverySnapshot: DiscoverySnapshot | null = null;
-  private statusPollTimer: NodeJS.Timeout | null = null;
   private restartTimer: NodeJS.Timeout | null = null;
   private stopping = false;
   private controlQueue: Promise<unknown> = Promise.resolve();
@@ -44,9 +44,6 @@ export class ReceiverSupervisor {
   }
 
   public async init(): Promise<void> {
-    this.startStatusPolling();
-    await this.refreshStatusFromFile();
-
     const config = this.configService.getCached();
     if (config.receiver.autoStart) {
       await this.start();
@@ -54,9 +51,6 @@ export class ReceiverSupervisor {
   }
 
   public async dispose(): Promise<void> {
-    if (this.statusPollTimer) {
-      clearInterval(this.statusPollTimer);
-    }
     if (this.restartTimer) {
       clearTimeout(this.restartTimer);
     }
@@ -284,27 +278,6 @@ export class ReceiverSupervisor {
     return snapshot;
   }
 
-  private startStatusPolling(): void {
-    this.statusPollTimer = setInterval(() => {
-      void this.refreshStatusFromFile();
-    }, 1000);
-  }
-
-  private async refreshStatusFromFile(): Promise<void> {
-    if (!this.child && !this.status.desiredRunning) {
-      return;
-    }
-
-    try {
-      const raw = await readFile(this.paths.receiverStatusFile, "utf8");
-      const parsed = JSON.parse(raw) as ReceiverStatusFile;
-      this.status = mergeStatusFile(this.status, parsed);
-      this.events.publishStatus(this.getStatus());
-    } catch {
-      // Missing or partially written status file is non-fatal.
-    }
-  }
-
   private buildRunArguments(config: AppConfig): string[] {
     return [
       "run",
@@ -354,7 +327,23 @@ export class ReceiverSupervisor {
     level: "info" | "warn"
   ): Promise<void> {
     if (line.startsWith("EVENT ")) {
-      this.applyReceiverEvent(JSON.parse(line.slice(6)) as ReceiverEvent);
+      try {
+        this.applyReceiverEvent(JSON.parse(line.slice(6)) as ReceiverEvent);
+      } catch (error) {
+        const message = `Malformed receiver event: ${String(error)}`;
+        await this.logStore.append({
+          timestamp: new Date().toISOString(),
+          scope: "receiver",
+          level: "warn",
+          message
+        });
+        this.events.publishLog({
+          timestamp: new Date().toISOString(),
+          scope: "receiver",
+          level: "warn",
+          message
+        });
+      }
       return;
     }
 
@@ -374,6 +363,12 @@ export class ReceiverSupervisor {
 
   private applyReceiverEvent(event: ReceiverEvent): void {
     switch (event.type) {
+      case "status":
+        if (event.payload) {
+          this.status = mergeStatusFile(this.status, event.payload);
+          this.events.publishStatus(this.getStatus());
+        }
+        break;
       case "starting":
         this.applyStatus({
           lifecycle: "starting",
@@ -469,11 +464,6 @@ export class ReceiverSupervisor {
     if (unexpected) {
       this.scheduleRestart();
     } else {
-      try {
-        await unlink(this.paths.receiverStatusFile);
-      } catch {
-        // Missing status file after a clean stop is acceptable.
-      }
       this.stopping = false;
     }
   }
