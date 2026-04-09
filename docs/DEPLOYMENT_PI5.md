@@ -63,7 +63,7 @@ Expected on ARM64:
 ## Fresh Install
 
 ```bash
-git clone https://github.com/Huftierchen/rPi5-ndi-monitor.git /home/pi/ndi-monitor
+git clone https://github.com/Huftierchen/rPi-ndi-monitor.git /home/pi/ndi-monitor
 cd /home/pi/ndi-monitor
 
 export NDI_SDK_DIR=/opt/ndi_sdk

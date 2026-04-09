@@ -43,7 +43,7 @@ sudo apt-get install -y \
   libsdl2-dev libasound2-dev ripgrep avahi-daemon qrencode
 
 # Clone and install
-git clone https://github.com/Huftierchen/rPi5-ndi-monitor.git /home/pi/ndi-monitor
+git clone https://github.com/Huftierchen/rPi-ndi-monitor.git /home/pi/ndi-monitor
 cd /home/pi/ndi-monitor
 
 export NDI_SDK_DIR=/opt/ndi_sdk   # path to your NDI SDK install
