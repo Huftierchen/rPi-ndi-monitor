@@ -18,7 +18,7 @@ Environment=XDG_RUNTIME_DIR=/run/ndi-monitor
 Environment=SDL_VIDEODRIVER=kmsdrm
 Environment=SDL_AUDIODRIVER=alsa
 Environment=LD_LIBRARY_PATH=/opt/ndi-monitor/lib
-ExecStart=/usr/bin/node /opt/ndi-monitor/apps/web/dist/index.js
+ExecStart=@NODE_BIN@ /opt/ndi-monitor/apps/web/dist/index.js
 Restart=on-failure
 RestartSec=3
 TimeoutStopSec=15

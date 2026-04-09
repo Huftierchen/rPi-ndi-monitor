@@ -127,7 +127,10 @@ install_files() {
     install -m 0640 "${PROJECT_ROOT}/config/default.yaml" /etc/ndi-receiver/config.yaml
   fi
 
-  install -m 0644 "${PROJECT_ROOT}/systemd/ndi-web.service" /etc/systemd/system/ndi-web.service
+  sed "s|@NODE_BIN@|${NODE_BIN}|g" \
+    "${PROJECT_ROOT}/systemd/ndi-web.service" \
+    > /etc/systemd/system/ndi-web.service
+  chmod 0644 /etc/systemd/system/ndi-web.service
   install -m 0644 "${PROJECT_ROOT}/systemd/ndi-standby.service" /etc/systemd/system/ndi-standby.service
   install -m 0644 "${PROJECT_ROOT}/systemd/ndi-monitor.tmpfiles.conf" /etc/tmpfiles.d/ndi-monitor.conf
 
@@ -177,6 +180,8 @@ enable_service() {
 
 main() {
   require_root
+  require_command node
+  NODE_BIN="$(command -v node)"
   require_command install
   configure_user
   build_project
