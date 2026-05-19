@@ -19,6 +19,16 @@ import type {
   LogLevel,
   ScaleMode,
 } from '../api/types.ts';
+import {
+  BANDWIDTH_MODE_LABELS,
+  BANDWIDTH_MODES,
+  COLOR_FORMAT_LABELS,
+  COLOR_FORMATS,
+  LOG_LEVEL_LABELS,
+  LOG_LEVELS,
+  SCALE_MODE_LABELS,
+  SCALE_MODES,
+} from '../api/options.ts';
 
 type Mode = 'quick' | 'advanced';
 
@@ -40,10 +50,15 @@ export function Settings() {
   const { busy, run } = useControlAction();
   const [mode, setMode] = useState<Mode>('quick');
   const [draft, setDraft] = useState<AppConfig | null>(config ? cloneConfig(config) : null);
+  const [dirty, setDirty] = useState(false);
 
-  // Re-sync draft when the upstream config reference changes (after save).
+  // Re-sync draft when the upstream config reference changes (after save or external update).
+  // Incoming config = new baseline = nothing pending.
   useEffect(() => {
-    if (config) setDraft(cloneConfig(config));
+    if (config) {
+      setDraft(cloneConfig(config));
+      setDirty(false);
+    }
   }, [config]);
 
   if (!draft || !config) {
@@ -54,12 +69,12 @@ export function Settings() {
     );
   }
 
-  const isUnchanged = JSON.stringify(draft) === JSON.stringify(config);
-
-  // Targeted setters
-  const setReceiver = (patch: Partial<AppConfig['receiver']>) =>
+  // Targeted setters — every mutation marks the draft as dirty.
+  const setReceiver = (patch: Partial<AppConfig['receiver']>) => {
     setDraft((d) => (d ? { ...d, receiver: { ...d.receiver, ...patch } } : d));
-  const setReconnect = (patch: Partial<AppConfig['receiver']['reconnect']>) =>
+    setDirty(true);
+  };
+  const setReconnect = (patch: Partial<AppConfig['receiver']['reconnect']>) => {
     setDraft((d) =>
       d
         ? {
@@ -71,20 +86,32 @@ export function Settings() {
           }
         : d,
     );
-  const setServer = (patch: Partial<AppConfig['server']>) =>
+    setDirty(true);
+  };
+  const setServer = (patch: Partial<AppConfig['server']>) => {
     setDraft((d) => (d ? { ...d, server: { ...d.server, ...patch } } : d));
-  const setLogging = (patch: Partial<AppConfig['logging']>) =>
+    setDirty(true);
+  };
+  const setLogging = (patch: Partial<AppConfig['logging']>) => {
     setDraft((d) => (d ? { ...d, logging: { ...d.logging, ...patch } } : d));
-  const setDisplay = (patch: Partial<AppConfig['display']>) =>
+    setDirty(true);
+  };
+  const setDisplay = (patch: Partial<AppConfig['display']>) => {
     setDraft((d) => (d ? { ...d, display: { ...d.display, ...patch } } : d));
-  const setDevice = (patch: Partial<AppConfig['device']>) =>
+    setDirty(true);
+  };
+  const setDevice = (patch: Partial<AppConfig['device']>) => {
     setDraft((d) => (d ? { ...d, device: { ...d.device, ...patch } } : d));
+    setDirty(true);
+  };
 
   async function handleSave() {
     if (!draft) return;
     await run(async () => {
       const updated = await api.putConfig(draft);
       setConfig(updated);
+      setDraft(cloneConfig(updated));
+      setDirty(false);
     }, 'Settings saved');
   }
 
@@ -101,9 +128,11 @@ export function Settings() {
       value={draft.receiver.scaleMode}
       onChange={(e) => setReceiver({ scaleMode: e.target.value as ScaleMode })}
     >
-      <option value="contain">contain — keep aspect, may letterbox</option>
-      <option value="cover">cover — fill display, may crop</option>
-      <option value="stretch">stretch — fill without preserving ratio</option>
+      {SCALE_MODES.map((m) => (
+        <option key={m} value={m}>
+          {SCALE_MODE_LABELS[m]}
+        </option>
+      ))}
     </select>
   );
 
@@ -112,9 +141,11 @@ export function Settings() {
       value={draft.receiver.colorFormat}
       onChange={(e) => setReceiver({ colorFormat: e.target.value as ColorFormat })}
     >
-      <option value="fastest">fastest — recommended for Pi 5</option>
-      <option value="uyvy">uyvy</option>
-      <option value="rgba">rgba</option>
+      {COLOR_FORMATS.map((m) => (
+        <option key={m} value={m}>
+          {COLOR_FORMAT_LABELS[m]}
+        </option>
+      ))}
     </select>
   );
 
@@ -159,20 +190,20 @@ export function Settings() {
           <div>
             <SectionLabel right="TOGGLE ADV TO EDIT">ADVANCED · COLLAPSED</SectionLabel>
             <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <PreviewAccordion
+              <Accordion
                 title="RECONNECT STRATEGY"
                 meta="4 fields"
-                onClick={() => setMode('advanced')}
+                onHeaderClick={() => setMode('advanced')}
               />
-              <PreviewAccordion
+              <Accordion
                 title="WEB UI & LOGGING"
                 meta="6 fields"
-                onClick={() => setMode('advanced')}
+                onHeaderClick={() => setMode('advanced')}
               />
-              <PreviewAccordion
+              <Accordion
                 title="DEVICE & DISPLAY"
                 meta="3 fields"
-                onClick={() => setMode('advanced')}
+                onHeaderClick={() => setMode('advanced')}
               />
             </div>
           </div>
@@ -199,8 +230,11 @@ export function Settings() {
                   setReceiver({ bandwidthMode: e.target.value as BandwidthMode })
                 }
               >
-                <option value="highest">highest — request full quality</option>
-                <option value="lowest">lowest — proxy stream, easier on Pi 5</option>
+                {BANDWIDTH_MODES.map((m) => (
+                  <option key={m} value={m}>
+                    {BANDWIDTH_MODE_LABELS[m]}
+                  </option>
+                ))}
               </select>
             </Field>
             <Field label="RECEIVER COLOR FORMAT" hint="CPU IMPACT · HIGH">
@@ -297,11 +331,11 @@ export function Settings() {
                 value={draft.logging.level}
                 onChange={(e) => setLogging({ level: e.target.value as LogLevel })}
               >
-                <option value="trace">trace</option>
-                <option value="debug">debug</option>
-                <option value="info">info</option>
-                <option value="warn">warn</option>
-                <option value="error">error</option>
+                {LOG_LEVELS.map((m) => (
+                  <option key={m} value={m}>
+                    {LOG_LEVEL_LABELS[m]}
+                  </option>
+                ))}
               </select>
             </Field>
             <ToggleRow
@@ -366,47 +400,12 @@ export function Settings() {
         <Button
           variant="primary"
           full
-          disabled={busy || isUnchanged}
+          disabled={busy || !dirty}
           onClick={handleSave}
         >
           ◇ SAVE SETTINGS
         </Button>
       </div>
     </>
-  );
-}
-
-interface PreviewAccordionProps {
-  title: string;
-  meta: string;
-  onClick: () => void;
-}
-function PreviewAccordion({ title, meta, onClick }: PreviewAccordionProps) {
-  return (
-    <button
-      className="accordion"
-      type="button"
-      onClick={onClick}
-      style={{ width: '100%', textAlign: 'left', cursor: 'pointer' }}
-    >
-      <div className="accordion-head" style={{ pointerEvents: 'none' }}>
-        <span>◇ {title}</span>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span
-            style={{
-              fontFamily: 'var(--ff-mono)',
-              fontSize: 9,
-              letterSpacing: '0.15em',
-              color: 'var(--fg-mute)',
-            }}
-          >
-            {meta}
-          </span>
-          <span className="chev" aria-hidden="true">
-            ＋
-          </span>
-        </span>
-      </div>
-    </button>
   );
 }

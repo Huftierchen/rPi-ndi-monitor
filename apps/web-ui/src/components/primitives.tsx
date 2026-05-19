@@ -257,16 +257,37 @@ export interface AccordionProps {
   meta?: ReactNode;
   defaultOpen?: boolean;
   children?: ReactNode;
+  /**
+   * If provided, clicking the head invokes this callback instead of toggling
+   * the internal open state. The body is never rendered and the chev always
+   * shows the collapsed glyph. Used to present a preview that delegates the
+   * real expansion to a parent (e.g. switching settings mode).
+   */
+  onHeaderClick?: () => void;
 }
-export function Accordion({ title, meta, defaultOpen = false, children }: AccordionProps) {
+export function Accordion({
+  title,
+  meta,
+  defaultOpen = false,
+  children,
+  onHeaderClick,
+}: AccordionProps) {
   const [open, setOpen] = useState(defaultOpen);
+  const controlled = onHeaderClick !== undefined;
+  const effectiveOpen = controlled ? false : open;
   return (
-    <div className={'accordion' + (open ? '' : ' collapsed')}>
+    <div className={'accordion' + (effectiveOpen ? '' : ' collapsed')}>
       <button
         type="button"
         className="accordion-head"
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
+        onClick={() => {
+          if (controlled) {
+            onHeaderClick!();
+          } else {
+            setOpen((o) => !o);
+          }
+        }}
+        aria-expanded={effectiveOpen}
       >
         <span>◇ {title}</span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -282,10 +303,10 @@ export function Accordion({ title, meta, defaultOpen = false, children }: Accord
               {meta}
             </small>
           )}
-          <span className="chev" aria-hidden="true">{open ? '−' : '＋'}</span>
+          <span className="chev" aria-hidden="true">{effectiveOpen ? '−' : '＋'}</span>
         </span>
       </button>
-      {open && <div className="accordion-body">{children}</div>}
+      {!controlled && open && <div className="accordion-body">{children}</div>}
     </div>
   );
 }
