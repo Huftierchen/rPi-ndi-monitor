@@ -34,12 +34,10 @@ export function Logs() {
 function LogPanel({ scope, entries }: { scope: LogScope; entries: LogEntry[] }) {
   const boxRef = useRef<HTMLDivElement>(null);
   const [autoScroll, setAutoScroll] = useState(true);
-  const [showJump, setShowJump] = useState(false);
 
   // Reset auto-scroll state when switching tabs.
   useEffect(() => {
     setAutoScroll(true);
-    setShowJump(false);
     const el = boxRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [scope]);
@@ -49,9 +47,6 @@ function LogPanel({ scope, entries }: { scope: LogScope; entries: LogEntry[] }) 
     if (!el) return;
     if (autoScroll) {
       el.scrollTop = el.scrollHeight;
-      setShowJump(false);
-    } else {
-      setShowJump(true);
     }
   }, [entries, autoScroll]);
 
@@ -60,7 +55,6 @@ function LogPanel({ scope, entries }: { scope: LogScope; entries: LogEntry[] }) 
     if (!el) return;
     const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
     setAutoScroll(nearBottom);
-    if (nearBottom) setShowJump(false);
   }
 
   function jumpToLatest(): void {
@@ -68,7 +62,6 @@ function LogPanel({ scope, entries }: { scope: LogScope; entries: LogEntry[] }) 
     if (!el) return;
     el.scrollTop = el.scrollHeight;
     setAutoScroll(true);
-    setShowJump(false);
   }
 
   return (
@@ -99,7 +92,7 @@ function LogPanel({ scope, entries }: { scope: LogScope; entries: LogEntry[] }) 
           ))
         )}
       </div>
-      {showJump && !autoScroll && (
+      {!autoScroll && entries.length > 0 && (
         <button
           onClick={jumpToLatest}
           className="btn sm ghost-cyan"
