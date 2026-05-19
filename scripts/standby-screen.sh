@@ -25,8 +25,6 @@ for font in \
   Uni2-TerminusBold24x12 \
   Uni3-Terminus24x12 \
   Uni2-Terminus24x12 \
-  Lat15-TerminusBold24x12 \
-  Lat15-Terminus24x12 \
   Uni3-TerminusBold20x10 \
   Uni2-Terminus20x10; do
   if setfont "${font}" -C "${TTY_DEVICE}" 2>/dev/null; then
@@ -116,7 +114,7 @@ qr_lines=()
 if command -v qrencode >/dev/null 2>&1; then
   while IFS= read -r qr_line; do
     qr_lines+=("${qr_line}")
-  done < <(qrencode -m 1 -t ANSIUTF8 "${web_ui_url}" 2>/dev/null || true)
+  done < <(qrencode -m 1 -t ASCII "${web_ui_url}" 2>/dev/null || true)
 fi
 
 term_cols="$(tput cols 2>/dev/null || echo 80)"
