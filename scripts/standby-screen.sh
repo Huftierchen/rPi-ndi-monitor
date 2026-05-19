@@ -134,9 +134,15 @@ if command -v qrencode >/dev/null 2>&1; then
       fi
       i=$(( i + 2 ))
     done
-    ansi_line+="${esc_reset}"
+    # Append a 1-module visual margin to the right of each QR row.
+    ansi_line+="${esc_reset}  "
     qr_lines+=("${ansi_line}")
   done < <(qrencode -m 2 -t ASCII "${web_ui_url}" 2>/dev/null || true)
+
+  # Prepend a 1-row visual margin above the QR.
+  if (( ${#qr_lines[@]} > 0 )); then
+    qr_lines=("" "${qr_lines[@]}")
+  fi
 fi
 
 term_cols="$(tput cols 2>/dev/null || echo 80)"
