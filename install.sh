@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INSTALL_ROOT="${INSTALL_ROOT:-/opt/ndi-monitor}"
 SYSTEM_USER="${SYSTEM_USER:-ndi-monitor}"
 ALLOW_STUB_BACKEND="${ALLOW_STUB_BACKEND:-0}"

@@ -12,7 +12,7 @@ Note: the current verified runtime box in this repository is a Raspberry Pi 4, b
 
 ## What the Install Path Does
 
-`scripts/install.sh` builds and installs the full stack:
+`install.sh` (at the repo root) builds and installs the full stack:
 
 - enables `pnpm` via Corepack
 - builds the web app and native receiver
@@ -67,7 +67,7 @@ git clone https://github.com/Huftierchen/rPi-ndi-monitor.git /home/pi/ndi-monito
 cd /home/pi/ndi-monitor
 
 export NDI_SDK_DIR=/opt/ndi_sdk
-sudo ./scripts/install.sh
+sudo ./install.sh
 sudo reboot
 ```
 
@@ -136,7 +136,7 @@ For development without the real NDI SDK:
 ```bash
 export ALLOW_STUB_BACKEND=1
 export NDI_RECEIVER_STUB_SOURCE="Demo Source"
-sudo ./scripts/install.sh
+sudo ./install.sh
 ```
 
 For stub builds, `install.sh` skips the NDI runtime copy when no SDK directory is present.
@@ -148,13 +148,13 @@ This is for development only, not for production.
 ```bash
 cd /home/pi/ndi-monitor
 export NDI_SDK_DIR=/opt/ndi_sdk
-sudo ./scripts/update.sh
+sudo ./update.sh
 ```
 
 `update.sh` runs `git pull --ff-only` itself (as the repo owner, not as root). If you want to update from already-checked-out code without pulling, set `SKIP_GIT_PULL=1`:
 
 ```bash
-sudo SKIP_GIT_PULL=1 ./scripts/update.sh
+sudo SKIP_GIT_PULL=1 ./update.sh
 ```
 
 The standby screen tries to load a larger Terminus console font and silently falls back to the default if none is available. For the larger font, install the console font packages once:
@@ -166,13 +166,13 @@ sudo apt-get install -y console-setup xfonts-terminus
 ## Uninstall
 
 ```bash
-sudo ./scripts/uninstall.sh
+sudo ./uninstall.sh
 ```
 
 With full cleanup:
 
 ```bash
-sudo PURGE=1 ./scripts/uninstall.sh
+sudo PURGE=1 ./uninstall.sh
 ```
 
 `uninstall.sh` also re-enables `getty@tty1.service` and restores the backed-up `/boot/cmdline.txt` if available.

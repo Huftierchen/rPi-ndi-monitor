@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 if [[ "${EUID}" -ne 0 ]]; then
   echo "run as root" >&2
@@ -37,5 +37,5 @@ git_pull_repo() {
 
 git_pull_repo
 systemctl stop ndi-web.service || true
-"${PROJECT_ROOT}/scripts/install.sh"
+"${PROJECT_ROOT}/install.sh"
 echo "ndi-monitor updated"

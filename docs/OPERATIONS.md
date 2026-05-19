@@ -220,10 +220,11 @@ On `SIGTERM`:
 
 ```bash
 cd /home/pi/ndi-monitor
-git pull
 export NDI_SDK_DIR=/opt/ndi_sdk
-sudo ./scripts/update.sh
+sudo ./update.sh
 ```
+
+`update.sh` pulls latest changes itself (as the repo owner). Pass `SKIP_GIT_PULL=1` to update from already-checked-out code.
 
 ## Remaining Operational Risks
 
