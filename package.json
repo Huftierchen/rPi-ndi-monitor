@@ -10,6 +10,8 @@
     "build": "pnpm -r build",
     "clean": "pnpm -r clean",
     "dev": "pnpm --filter @ndi-monitor/web dev",
+    "dev:ui": "pnpm --filter @ndi-monitor/web-ui dev",
+    "build:ui": "pnpm --filter @ndi-monitor/web-ui build",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck"
   }
