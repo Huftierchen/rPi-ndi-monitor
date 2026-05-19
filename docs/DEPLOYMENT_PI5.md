@@ -147,9 +147,20 @@ This is for development only, not for production.
 
 ```bash
 cd /home/pi/ndi-monitor
-git pull
 export NDI_SDK_DIR=/opt/ndi_sdk
 sudo ./scripts/update.sh
+```
+
+`update.sh` runs `git pull --ff-only` itself (as the repo owner, not as root). If you want to update from already-checked-out code without pulling, set `SKIP_GIT_PULL=1`:
+
+```bash
+sudo SKIP_GIT_PULL=1 ./scripts/update.sh
+```
+
+The standby screen tries to load a larger Terminus console font and silently falls back to the default if none is available. For the larger font, install the console font packages once:
+
+```bash
+sudo apt-get install -y console-setup xfonts-terminus
 ```
 
 ## Uninstall

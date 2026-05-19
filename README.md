@@ -62,6 +62,17 @@ Full deployment guide: [docs/DEPLOYMENT_PI5.md](docs/DEPLOYMENT_PI5.md)
 
 ---
 
+## Updating
+
+```bash
+cd /home/pi/ndi-monitor
+sudo ./scripts/update.sh
+```
+
+`update.sh` pulls the latest code (`git pull --ff-only` as the repo owner), stops `ndi-web`, rebuilds web and native receiver, and restarts both `ndi-standby` and `ndi-web`. Set `SKIP_GIT_PULL=1` to update from already-checked-out code.
+
+---
+
 ## Web UI
 
 | Page | What it does |
