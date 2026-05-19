@@ -14,11 +14,23 @@ import { LogStore } from "./logging/log-store.js";
 import { ReceiverSupervisor } from "./receiver/receiver-supervisor.js";
 import type { RuntimePaths } from "./types.js";
 
-export async function buildApp(paths: RuntimePaths) {
-  const pkgPath = path.join(paths.repoRoot, "apps", "web", "package.json");
-  const pkgRaw = await readFile(pkgPath, "utf8");
-  const pkg = JSON.parse(pkgRaw) as { version?: string };
-  const version = pkg.version ?? "dev";
+export interface BuildAppOptions {
+  installSignalHandlers?: boolean;
+}
+
+async function readWebVersion(repoRoot: string): Promise<string> {
+  try {
+    const raw = await readFile(path.join(repoRoot, "apps", "web", "package.json"), "utf8");
+    const pkg = JSON.parse(raw) as { version?: string };
+    return pkg.version ?? "dev";
+  } catch {
+    return "dev";
+  }
+}
+
+export async function buildApp(paths: RuntimePaths, options: BuildAppOptions = {}) {
+  const { installSignalHandlers = true } = options;
+  const version = await readWebVersion(paths.repoRoot);
 
   const configService = new ConfigService(paths);
   const config = await configService.ensureReady();
@@ -71,12 +83,14 @@ export async function buildApp(paths: RuntimePaths) {
     process.exit(0);
   }
 
-  process.once("SIGINT", () => {
-    void shutdown("SIGINT");
-  });
-  process.once("SIGTERM", () => {
-    void shutdown("SIGTERM");
-  });
+  if (installSignalHandlers) {
+    process.once("SIGINT", () => {
+      void shutdown("SIGINT");
+    });
+    process.once("SIGTERM", () => {
+      void shutdown("SIGTERM");
+    });
+  }
 
   return {
     app,

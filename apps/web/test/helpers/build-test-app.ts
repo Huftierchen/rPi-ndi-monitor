@@ -28,12 +28,21 @@ export async function buildTestApp() {
     receiverBinary: path.join(repoRoot, "apps", "receiver", "build", "ndi-receiver")
   };
 
-  const built = await buildApp(paths);
-  await built.app.ready();
+  let built: Awaited<ReturnType<typeof buildApp>>;
+  try {
+    built = await buildApp(paths, { installSignalHandlers: false });
+    await built.app.ready();
+  } catch (err) {
+    await rm(runtimeRoot, { recursive: true, force: true });
+    throw err;
+  }
 
   return {
     app: built.app,
     paths,
+    supervisor: built.supervisor,
+    config: built.config,
+    logger: built.logger,
     async cleanup() {
       await built.supervisor.dispose();
       await built.app.close();
