@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { useAppState } from "../state/AppState.tsx";
 import { SectionLabel } from "../components/primitives.tsx";
 import { api } from "../api/client.ts";
 import type { DiscoverySource } from "../api/types.ts";
+import { isReceiverRunning } from "../utils/status.ts";
 
 interface QuickEntry {
   name: string;
@@ -23,6 +25,7 @@ function toEntry(src: DiscoverySource, current: boolean): QuickEntry {
 
 export function QuickSwitch() {
   const { status, config, discovery, showFlash } = useAppState();
+  const [busy, setBusy] = useState(false);
   const configured = config?.receiver.sourceName ?? "";
 
   const entries: QuickEntry[] = [];
@@ -45,9 +48,10 @@ export function QuickSwitch() {
   async function handleSwitch(name: string): Promise<void> {
     const ok = window.confirm(`Switch source to '${name}' and start receiver?`);
     if (!ok) return;
+    setBusy(true);
     try {
       await api.switchSource(name);
-      if (status?.pid === null || status?.pid === undefined) {
+      if (!isReceiverRunning(status)) {
         await api.start();
       }
       showFlash({ kind: "info", message: `Switched to ${name}` });
@@ -56,6 +60,8 @@ export function QuickSwitch() {
         kind: "error",
         message: err instanceof Error ? err.message : String(err)
       });
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -65,7 +71,7 @@ export function QuickSwitch() {
       <div className="quick-row" style={{ marginTop: 10 }}>
         {entries.map((entry, i) => {
           const meta =
-            entry.ip || entry.res || entry.fps !== null && entry.fps !== undefined
+            entry.ip || entry.res || entry.fps != null
               ? [entry.ip, entry.res, entry.fps != null ? `${entry.fps} FPS` : null]
                   .filter(Boolean)
                   .join(" · ")
@@ -75,7 +81,7 @@ export function QuickSwitch() {
               key={entry.name}
               className={"quick-item" + (entry.current ? " current" : "")}
               onClick={entry.current ? undefined : () => handleSwitch(entry.name)}
-              disabled={entry.current}
+              disabled={entry.current || busy}
             >
               <div className="qi-icon">
                 {entry.current ? "●" : (i + 1).toString().padStart(2, "0")}

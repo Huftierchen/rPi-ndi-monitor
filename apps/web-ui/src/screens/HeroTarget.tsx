@@ -51,13 +51,15 @@ export function HeroTarget() {
             <span className="accent">NO SOURCE</span>
           </h1>
         )}
-        <div className="hero-sub">
-          <span>{resolution}</span>
-          <span className="sep">·</span>
-          <span>{fps} FPS</span>
-          <span className="sep">·</span>
-          <span>HDMI · KMS</span>
-        </div>
+        {sourceName ? (
+          <div className="hero-sub">
+            <span>{resolution}</span>
+            <span className="sep">·</span>
+            <span>{fps} FPS</span>
+            <span className="sep">·</span>
+            <span>HDMI · KMS</span>
+          </div>
+        ) : null}
         <div className="noise-strip" style={{ display: "flex", marginTop: 12, marginBottom: 0 }}>
           <span>UP {uptime.toUpperCase()}</span>
           <span>·</span>
