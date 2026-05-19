@@ -4,11 +4,20 @@ import { Button, SectionLabel, Toggle } from "../components/primitives.tsx";
 import { SourceCard } from "./SourceCard.tsx";
 import { api } from "../api/client.ts";
 import { isReceiverRunning } from "../utils/status.ts";
-import type { DiscoverySource } from "../api/types.ts";
+import { useControlAction } from "../utils/useControlAction.ts";
+import type { DiscoverySnapshot, DiscoverySource } from "../api/types.ts";
+
+function computeElapsed(snapshot: DiscoverySnapshot | null): number | null {
+  if (!snapshot || snapshot.error) return null;
+  const started = Date.parse(snapshot.startedAt);
+  const finished = Date.parse(snapshot.finishedAt);
+  if (!Number.isFinite(started) || !Number.isFinite(finished)) return null;
+  return Math.max(0, Math.round((finished - started) / 1000));
+}
 
 export function Sources() {
   const { status, config, discovery, showFlash } = useAppState();
-  const [busy, setBusy] = useState(false);
+  const { busy, run } = useControlAction();
   const [isScanning, setIsScanning] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState<boolean>(() => {
     return localStorage.getItem("ndi-monitor:auto-refresh") !== "false";
@@ -18,6 +27,22 @@ export function Sources() {
     localStorage.setItem("ndi-monitor:auto-refresh", String(autoRefresh));
   }, [autoRefresh]);
 
+  useEffect(() => {
+    if (!autoRefresh) return;
+    let cancelled = false;
+    const tick = (): void => {
+      if (cancelled || busy || isScanning) return;
+      api.triggerDiscovery().catch(() => {
+        /* swallow — auto-refresh is best-effort */
+      });
+    };
+    const id = setInterval(tick, 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [autoRefresh, busy, isScanning]);
+
   const configuredName = config?.receiver.sourceName ?? "";
   const sources: DiscoverySource[] = discovery?.sources ?? [];
   const currentSource = useMemo(
@@ -25,8 +50,8 @@ export function Sources() {
     [sources, configuredName]
   );
   const availableSources = useMemo(
-    () => sources.filter((s) => s.name !== configuredName),
-    [sources, configuredName]
+    () => (currentSource ? sources.filter((s) => s.id !== currentSource.id) : sources),
+    [sources, currentSource]
   );
 
   async function handleRescan(): Promise<void> {
@@ -41,45 +66,19 @@ export function Sources() {
     }
   }
 
-  async function callControl(action: () => Promise<unknown>, ok: string): Promise<void> {
-    if (busy) return;
-    try {
-      setBusy(true);
-      await action();
-      showFlash({ kind: "info", message: ok });
-    } catch (err) {
-      showFlash({ kind: "error", message: err instanceof Error ? err.message : String(err) });
-    } finally {
-      setBusy(false);
-    }
-  }
-
   async function handleUseAndStart(src: DiscoverySource): Promise<void> {
-    if (busy) return;
     const ok = window.confirm(`Switch source to '${src.name}' and start receiver?`);
     if (!ok) return;
-    try {
-      setBusy(true);
+    await run(async () => {
       await api.switchSource(src.name);
       if (!isReceiverRunning(status)) {
         await api.start();
       }
-      showFlash({ kind: "info", message: `Switched to ${src.name}` });
-    } catch (err) {
-      showFlash({ kind: "error", message: err instanceof Error ? err.message : String(err) });
-    } finally {
-      setBusy(false);
-    }
+    }, `Switched to ${src.name}`);
   }
 
   const found = sources.length;
-  const elapsed =
-    discovery && !discovery.error
-      ? Math.max(
-          0,
-          Math.round((Date.parse(discovery.finishedAt) - Date.parse(discovery.startedAt)) / 1000)
-        )
-      : null;
+  const elapsed = computeElapsed(discovery);
 
   return (
     <>
@@ -156,9 +155,9 @@ export function Sources() {
               src={currentSource}
               state="current"
               busy={busy}
-              onStop={() => callControl(api.stop, "Receiver stopped")}
-              onRestart={() => callControl(api.restart, "Receiver restarting")}
-              onReconnect={() => callControl(api.reconnect, "Reconnecting source")}
+              onStop={() => run(api.stop, "Receiver stopped")}
+              onRestart={() => run(api.restart, "Receiver restarting")}
+              onReconnect={() => run(api.reconnect, "Reconnecting source")}
             />
           </div>
         </div>
