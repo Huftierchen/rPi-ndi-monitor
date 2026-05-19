@@ -1,0 +1,36 @@
+/* Fonts are loaded via @fontsource/* in src/main.tsx (offline-safe for the LAN appliance). */
+
+:root {
+  /* Backgrounds */
+  --bg-base:    #0A0A12;
+  --bg-panel:   #11111B;
+  --bg-panel-2: #161622;
+  --bg-deep:    #06060C;
+
+  /* Lines */
+  --line:       #1F1F2E;
+  --line-bold:  #2A2A3E;
+
+  /* Primary action colour — Cyan */
+  --cyan:        #5EF6FF;
+  --cyan-dim:    #3FB8C2;
+  --cyan-glow:   rgba(94,246,255,0.22);
+
+  /* Status */
+  --green:       #1DED83;
+  --green-glow:  rgba(29,237,131,0.22);
+  --red:         #F75049;
+  --red-glow:    rgba(247,80,73,0.20);
+  --orange:      #FB932E;
+  --yellow:      #F0B537;
+  --grey:        #6E6E80;
+
+  /* Text */
+  --fg:        #E8E8F0;
+  --fg-dim:    #9999AA;
+  --fg-mute:   #5C5C70;
+  --fg-faint:  #3A3A4A;
+
+  --ff-ui:    'Rajdhani', system-ui, sans-serif;
+  --ff-mono:  'Orbitron', 'JetBrains Mono', monospace;
+}
