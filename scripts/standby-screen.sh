@@ -112,9 +112,31 @@ info_lines+=("Source    : ${source_name}")
 
 qr_lines=()
 if command -v qrencode >/dev/null 2>&1; then
-  while IFS= read -r qr_line; do
-    qr_lines+=("${qr_line}")
-  done < <(qrencode -m 1 -t ASCII "${web_ui_url}" 2>/dev/null || true)
+  # qrencode -t ASCII emits "##" for dark modules and "  " for light modules,
+  # 2 chars per module. We turn each pair into an ANSI-coloured cell so the
+  # result is a real solid block on the Linux console regardless of which
+  # console font is loaded:
+  #   dark module  -> two spaces on the default (dark) background
+  #   light module -> two spaces on a white background
+  # That produces a phone-scannable black-on-white QR with a clean quiet zone.
+  esc_reset=$'\033[0m'
+  esc_light=$'\033[47m'
+  while IFS= read -r raw_line; do
+    ansi_line=""
+    i=0
+    len=${#raw_line}
+    while (( i < len )); do
+      pair="${raw_line:i:2}"
+      if [[ "${pair}" == "##" ]]; then
+        ansi_line+="${esc_reset}  "
+      else
+        ansi_line+="${esc_light}  "
+      fi
+      i=$(( i + 2 ))
+    done
+    ansi_line+="${esc_reset}"
+    qr_lines+=("${ansi_line}")
+  done < <(qrencode -m 2 -t ASCII "${web_ui_url}" 2>/dev/null || true)
 fi
 
 term_cols="$(tput cols 2>/dev/null || echo 80)"
