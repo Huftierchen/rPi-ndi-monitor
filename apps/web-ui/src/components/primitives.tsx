@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { ButtonHTMLAttributes, ReactNode, CSSProperties } from 'react';
 
 /* ─── SectionLabel ─── */
@@ -174,17 +174,39 @@ function clamp(n: number, min?: number, max?: number): number {
   return n;
 }
 export function Stepper({ value, onChange, min, max, step = 1 }: StepperProps) {
+  const [draft, setDraft] = useState<string>(String(value));
+
+  useEffect(() => {
+    setDraft(String(value));
+  }, [value]);
+
   const dec = () => onChange(clamp(value - step, min, max));
   const inc = () => onChange(clamp(value + step, min, max));
+
+  function commit(): void {
+    const parsed = Number(draft);
+    if (!Number.isFinite(parsed) || draft.trim() === '') {
+      setDraft(String(value));
+      return;
+    }
+    const clamped = clamp(parsed, min, max);
+    setDraft(String(clamped));
+    if (clamped !== value) onChange(clamped);
+  }
+
   return (
     <div className="stepper">
       <button type="button" onClick={dec} aria-label="decrement">−</button>
       <input
         type="number"
-        value={value}
-        onChange={(e) => {
-          const parsed = parseInt(e.target.value, 10);
-          if (!Number.isNaN(parsed)) onChange(clamp(parsed, min, max));
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            commit();
+            e.currentTarget.blur();
+          }
         }}
       />
       <button type="button" onClick={inc} aria-label="increment">＋</button>
@@ -260,7 +282,7 @@ export function Accordion({ title, meta, defaultOpen = false, children }: Accord
               {meta}
             </small>
           )}
-          <span className="chev">{open ? '−' : '＋'}</span>
+          <span className="chev" aria-hidden="true">{open ? '−' : '＋'}</span>
         </span>
       </button>
       {open && <div className="accordion-body">{children}</div>}
