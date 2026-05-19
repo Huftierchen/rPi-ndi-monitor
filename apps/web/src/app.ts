@@ -1,4 +1,5 @@
 import path from "node:path";
+import { readFile } from "node:fs/promises";
 
 import fastify from "fastify";
 import fastifyFormBody from "@fastify/formbody";
@@ -14,6 +15,11 @@ import { ReceiverSupervisor } from "./receiver/receiver-supervisor.js";
 import type { RuntimePaths } from "./types.js";
 
 export async function buildApp(paths: RuntimePaths) {
+  const pkgPath = path.join(paths.repoRoot, "apps", "web", "package.json");
+  const pkgRaw = await readFile(pkgPath, "utf8");
+  const pkg = JSON.parse(pkgRaw) as { version?: string };
+  const version = pkg.version ?? "dev";
+
   const configService = new ConfigService(paths);
   const config = await configService.ensureReady();
 
@@ -54,7 +60,8 @@ export async function buildApp(paths: RuntimePaths) {
     events,
     logStore,
     logger,
-    supervisor
+    supervisor,
+    version
   });
 
   async function shutdown(signal: NodeJS.Signals): Promise<void> {

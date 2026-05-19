@@ -24,6 +24,7 @@ interface RouteContext {
   logStore: LogStore;
   logger: AppLogger;
   supervisor: ReceiverSupervisor;
+  version: string;
 }
 
 const logQuerySchema = z.object({
@@ -81,6 +82,11 @@ export async function registerRoutes(app: FastifyInstance, context: RouteContext
   app.get("/api/status", async () => ({
     ok: true,
     data: supervisor.getStatus()
+  }));
+
+  app.get("/api/version", async () => ({
+    ok: true,
+    data: { version: context.version }
   }));
 
   app.get("/api/settings", async () => ({
