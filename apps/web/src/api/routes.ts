@@ -9,6 +9,7 @@ import { EventBus } from "../events/event-bus.js";
 import { AppLogger } from "../logging/app-logger.js";
 import { LogStore } from "../logging/log-store.js";
 import { ReceiverSupervisor } from "../receiver/receiver-supervisor.js";
+import { DiscoverySupervisor } from "../receiver/discovery-supervisor.js";
 import type { LogScope } from "../types.js";
 import {
   renderAboutPage,
@@ -24,6 +25,7 @@ interface RouteContext {
   logStore: LogStore;
   logger: AppLogger;
   supervisor: ReceiverSupervisor;
+  discoverySupervisor: DiscoverySupervisor;
   version: string;
 }
 
@@ -39,7 +41,7 @@ const switchSourceSchema = z.object({
 const settingsPatchSchema: z.ZodType<AppConfigPatch> = appConfigPatchSchema;
 
 export async function registerRoutes(app: FastifyInstance, context: RouteContext): Promise<void> {
-  const { configService, events, logStore, logger, supervisor } = context;
+  const { configService, events, logStore, logger, supervisor, discoverySupervisor } = context;
 
   app.get("/", async (_request, reply) => {
     reply.type("text/html").send(renderDashboardPage(supervisor.getStatus(), configService.getCached()));
@@ -184,6 +186,7 @@ export async function registerRoutes(app: FastifyInstance, context: RouteContext
     let closed = false;
     let unsubscribe: (() => void) | null = null;
     let heartbeat: NodeJS.Timeout | null = null;
+    let notifiedDisconnect = false;
 
     const cleanup = (): void => {
       if (closed) {
@@ -196,6 +199,10 @@ export async function registerRoutes(app: FastifyInstance, context: RouteContext
       }
       unsubscribe?.();
       unsubscribe = null;
+      if (!notifiedDisconnect) {
+        notifiedDisconnect = true;
+        discoverySupervisor.notifyClientDisconnected();
+      }
       if (!reply.raw.destroyed && !reply.raw.writableEnded) {
         reply.raw.end();
       }
@@ -228,6 +235,8 @@ export async function registerRoutes(app: FastifyInstance, context: RouteContext
     if (discovery && !writeSseFrame(`data: ${JSON.stringify({ type: "discovery", payload: discovery })}\n\n`)) {
       return;
     }
+
+    discoverySupervisor.notifyClientConnected();
 
     unsubscribe = events.subscribe((event) => {
       writeSseFrame(`data: ${JSON.stringify(event)}\n\n`);

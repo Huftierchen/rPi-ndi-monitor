@@ -12,6 +12,7 @@ import { registerRoutes } from "./api/routes.js";
 import { AppLogger } from "./logging/app-logger.js";
 import { LogStore } from "./logging/log-store.js";
 import { ReceiverSupervisor } from "./receiver/receiver-supervisor.js";
+import { DiscoverySupervisor } from "./receiver/discovery-supervisor.js";
 import type { RuntimePaths } from "./types.js";
 
 export interface BuildAppOptions {
@@ -46,6 +47,12 @@ export async function buildApp(paths: RuntimePaths, options: BuildAppOptions = {
   const supervisor = new ReceiverSupervisor(paths, configService, logStore, events, logger.child("supervisor"));
   await supervisor.init();
 
+  const discoverySupervisor = new DiscoverySupervisor({
+    intervalMs: 5000,
+    discover: () => supervisor.discover(),
+    onError: (err) => { void logger.warn("Auto-discovery failed", { error: String(err) }); }
+  });
+
   const app = fastify({
     logger: false,
     disableRequestLogging: true
@@ -73,11 +80,13 @@ export async function buildApp(paths: RuntimePaths, options: BuildAppOptions = {
     logStore,
     logger,
     supervisor,
+    discoverySupervisor,
     version
   });
 
   async function shutdown(signal: NodeJS.Signals): Promise<void> {
     await logger.info("Shutting down web service", { signal });
+    discoverySupervisor.dispose();
     await supervisor.dispose();
     await app.close();
     process.exit(0);
