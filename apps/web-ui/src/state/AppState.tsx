@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 import { useSse, type SseConnectionState } from "../api/useSse.ts";
 import { useStatusState } from "../api/useStatus.ts";
 import { useConfigState } from "../api/useConfig.ts";
@@ -65,10 +65,10 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     }
   });
 
-  const showFlash = (msg: FlashMessage): void => {
+  const showFlash = useCallback((msg: FlashMessage): void => {
     setFlash(msg);
     setTimeout(() => setFlash((cur) => (cur === msg ? null : cur)), 4000);
-  };
+  }, []);
 
   const value = useMemo<AppStateValue>(
     () => ({
@@ -83,7 +83,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       receiverLog,
       setConfig
     }),
-    [status, config, discovery, sse, version, flash, webLog, receiverLog, setConfig]
+    [status, config, discovery, sse, version, flash, showFlash, webLog, receiverLog, setConfig]
   );
 
   return <AppStateContext.Provider value={value}>{children}</AppStateContext.Provider>;
