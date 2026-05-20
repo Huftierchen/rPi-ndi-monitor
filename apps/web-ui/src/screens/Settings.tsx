@@ -197,35 +197,33 @@ export function Settings() {
   );
 
   const saveIndicator =
-    saveState === 'idle' ? null : (
+    (
       <div
+        aria-live="polite"
         style={{
+          position: 'fixed',
+          top: 'calc(env(safe-area-inset-top, 0px) + 12px)',
+          right: 14,
+          zIndex: 50,
+          pointerEvents: 'none',
           fontFamily: 'var(--ff-mono)',
           fontSize: 11,
           fontWeight: 700,
           letterSpacing: '0.2em',
           textTransform: 'uppercase',
           padding: '8px 12px',
-          marginTop: 10,
-          border: `1px solid ${
-            saveState === 'saved'
-              ? 'var(--green)'
-              : saveState === 'error'
-                ? 'var(--red)'
-                : 'var(--cyan)'
-          }`,
-          color:
+          color: '#001016',
+          background:
             saveState === 'saved'
               ? 'var(--green)'
               : saveState === 'error'
                 ? 'var(--red)'
                 : 'var(--cyan)',
-          background:
-            saveState === 'saved'
-              ? 'rgba(29,237,131,0.08)'
-              : saveState === 'error'
-                ? 'rgba(247,80,73,0.08)'
-                : 'rgba(94,246,255,0.08)',
+          border: '1px solid rgba(0,0,0,0.45)',
+          boxShadow: '0 4px 14px rgba(0,0,0,0.45)',
+          opacity: saveState === 'idle' ? 0 : 1,
+          transform: `translateY(${saveState === 'idle' ? '-6px' : '0'})`,
+          transition: 'opacity 150ms ease, transform 150ms ease',
         }}
       >
         {saveState === 'saving' && '⌛ SAVING…'}
