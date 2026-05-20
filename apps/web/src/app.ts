@@ -59,9 +59,11 @@ export async function buildApp(paths: RuntimePaths, options: BuildAppOptions = {
   });
 
   app.register(fastifyFormBody);
+  const uiDist = path.join(paths.repoRoot, "apps", "web-ui", "dist");
   app.register(fastifyStatic, {
-    root: path.join(paths.repoRoot, "apps", "web", "src", "ui", "assets"),
-    prefix: "/assets/"
+    root: uiDist,
+    prefix: "/",
+    decorateReply: false
   });
 
   app.setErrorHandler(async (error, _request, reply) => {
@@ -82,6 +84,20 @@ export async function buildApp(paths: RuntimePaths, options: BuildAppOptions = {
     supervisor,
     discoverySupervisor,
     version
+  });
+
+  app.setNotFoundHandler(async (request, reply) => {
+    const url = request.url;
+    if (url.startsWith("/api/") || url === "/healthz") {
+      reply.status(404).send({ ok: false, error: "Not found" });
+      return;
+    }
+    try {
+      const html = await readFile(path.join(uiDist, "index.html"), "utf8");
+      reply.type("text/html").send(html);
+    } catch {
+      reply.status(500).send({ ok: false, error: "UI bundle missing — run pnpm build:ui" });
+    }
   });
 
   async function shutdown(signal: NodeJS.Signals): Promise<void> {
