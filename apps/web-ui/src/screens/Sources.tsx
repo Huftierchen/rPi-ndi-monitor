@@ -27,21 +27,10 @@ export function Sources() {
     localStorage.setItem("ndi-monitor:auto-refresh", String(autoRefresh));
   }, [autoRefresh]);
 
-  useEffect(() => {
-    if (!autoRefresh) return;
-    let cancelled = false;
-    const tick = (): void => {
-      if (cancelled || busy || isScanning) return;
-      api.triggerDiscovery().catch(() => {
-        /* swallow — auto-refresh is best-effort */
-      });
-    };
-    const id = setInterval(tick, 5000);
-    return () => {
-      cancelled = true;
-      clearInterval(id);
-    };
-  }, [autoRefresh, busy, isScanning]);
+  // Auto-refresh is driven by the backend DiscoverySupervisor: it runs every 5s
+  // while any SSE client is connected and pushes fresh snapshots over the event
+  // bus. The local toggle just lets the user mute/unmute that visual stream of
+  // updates (the SSE itself keeps flowing). No client-side polling needed.
 
   const configuredName = config?.receiver.sourceName ?? "";
   const sources: DiscoverySource[] = discovery?.sources ?? [];
@@ -67,8 +56,6 @@ export function Sources() {
   }
 
   async function handleUseAndStart(src: DiscoverySource): Promise<void> {
-    const ok = window.confirm(`Switch source to '${src.name}' and start receiver?`);
-    if (!ok) return;
     await run(async () => {
       await api.switchSource(src.name);
       if (!isReceiverRunning(status)) {

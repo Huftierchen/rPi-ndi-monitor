@@ -49,10 +49,14 @@ function sanitizeDiscoverySource(source: DiscoverySource): DiscoverySource {
   };
 }
 
+const DISCOVERY_DEFAULT_TIMEOUT_MS = 6000;
+const DISCOVERY_SOURCE_TTL_MS = 20000;
+
 export class ReceiverSupervisor {
   private child: ChildProcess | null = null;
   private status: ReceiverRuntimeStatus;
   private discoverySnapshot: DiscoverySnapshot | null = null;
+  private discoveryLastSeen = new Map<string, number>();
   private restartTimer: NodeJS.Timeout | null = null;
   private stopping = false;
   private controlQueue: Promise<unknown> = Promise.resolve();
@@ -122,7 +126,7 @@ export class ReceiverSupervisor {
     return this.restart();
   }
 
-  public async discover(timeoutMs = 4000): Promise<DiscoverySnapshot> {
+  public async discover(timeoutMs = DISCOVERY_DEFAULT_TIMEOUT_MS): Promise<DiscoverySnapshot> {
     return this.runExclusive(() => this.discoverInternal(timeoutMs));
   }
 
@@ -273,12 +277,12 @@ export class ReceiverSupervisor {
     });
 
     const finishedAt = new Date();
-    let sources: DiscoverySource[] = [];
+    let freshSources: DiscoverySource[] = [];
     let error: string | null = null;
 
     if (exitCode === 0) {
       try {
-        sources = (JSON.parse(stdout) as DiscoverySource[]).map(sanitizeDiscoverySource);
+        freshSources = (JSON.parse(stdout) as DiscoverySource[]).map(sanitizeDiscoverySource);
       } catch (parseError) {
         error = `Failed to parse discovery output: ${String(parseError)}`;
       }
@@ -286,11 +290,40 @@ export class ReceiverSupervisor {
       error = stderr.trim() || `receiver discover exited with code ${exitCode}`;
     }
 
+    const now = finishedAt.getTime();
+    const merged = new Map<string, DiscoverySource>();
+
+    // Carry over previously-seen sources whose TTL hasn't expired. mDNS scans are
+    // lossy: a single scan can miss a sender that's actually still online, which
+    // would otherwise cause sources to flicker in/out of the UI.
+    if (!error) {
+      const previous = this.discoverySnapshot?.sources ?? [];
+      for (const source of previous) {
+        const seenAt = this.discoveryLastSeen.get(source.id) ?? 0;
+        if (now - seenAt <= DISCOVERY_SOURCE_TTL_MS) {
+          merged.set(source.id, source);
+        } else {
+          this.discoveryLastSeen.delete(source.id);
+        }
+      }
+
+      for (const source of freshSources) {
+        merged.set(source.id, source);
+        this.discoveryLastSeen.set(source.id, now);
+      }
+    } else {
+      // Discovery errored: keep the previous snapshot's sources untouched, just
+      // surface the error so the UI can render it.
+      for (const source of this.discoverySnapshot?.sources ?? []) {
+        merged.set(source.id, source);
+      }
+    }
+
     const snapshot: DiscoverySnapshot = {
       startedAt: startedAt.toISOString(),
       finishedAt: finishedAt.toISOString(),
       durationMs: finishedAt.getTime() - startedAt.getTime(),
-      sources,
+      sources: Array.from(merged.values()),
       error
     };
 

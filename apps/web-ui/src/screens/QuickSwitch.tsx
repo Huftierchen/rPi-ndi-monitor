@@ -46,8 +46,6 @@ export function QuickSwitch() {
   if (entries.length === 0) return null;
 
   async function handleSwitch(name: string): Promise<void> {
-    const ok = window.confirm(`Switch source to '${name}' and start receiver?`);
-    if (!ok) return;
     setBusy(true);
     try {
       await api.switchSource(name);
