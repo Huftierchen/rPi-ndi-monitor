@@ -330,7 +330,10 @@ export class ReceiverSupervisor {
     this.discoverySnapshot = snapshot;
     this.events.publishDiscovery(snapshot);
     await this.logger.info("Discovery completed", {
-      sources: snapshot.sources.length,
+      freshCount: freshSources.length,
+      freshNames: freshSources.map((s) => s.name),
+      mergedCount: snapshot.sources.length,
+      mergedNames: snapshot.sources.map((s) => s.name),
       error: snapshot.error
     });
 
