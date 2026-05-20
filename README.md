@@ -6,6 +6,11 @@ The Pi boots headless, renders one NDI source fullscreen over KMS/DRM, and serve
 
 > **NDI SDK required.** The SDK is not included — download it separately from [ndi.tv](https://ndi.tv/sdk/). See [NDI SDK](#ndi-sdk) below.
 
+|  |  |  |
+|:---:|:---:|:---:|
+| ![Standby screen on HDMI with QR code](docs/img/01-standby-screen.jpg) | ![Mobile-first Web UI tabs](docs/img/02-webui.jpg) | ![NDI source playing fullscreen](docs/img/03-running-screen.jpg) |
+| **1.** Boot → standby on HDMI with hostname, IP and QR code | **2.** Scan QR → drive the appliance from your phone (Dashboard, Sources, Settings) | **3.** Pick a source → it plays fullscreen over HDMI |
+
 ---
 
 ## Why this exists
@@ -23,10 +28,12 @@ No display manager, no desktop, no X11. Just NDI in, HDMI out.
 
 ## What you get
 
-- **Web UI** — dashboard, source picker, settings, live logs — all in the browser
+- **Mobile-first Web UI** — React SPA, V2-Console look, 5 tabs (Dashboard, Sources, Settings, Logs, About) — usable from phone or desktop
 - **QR code on boot** — scan once to get the URL, never type an IP again
+- **Auto-discovery** — backend re-scans NDI every 20s while the UI is open; quick-switch the last seen senders straight from the dashboard
+- **Auto-save settings** — toggles and selects persist immediately, text fields on blur; if the receiver is running, settings changes trigger a controlled restart automatically
 - **REST API** — automate everything with `curl` or any HTTP client
-- **Live status over SSE** — status updates push to the browser in real time
+- **Live status + logs over SSE** — status, discovery, and log entries stream to the browser in real time with auto-reconnect
 - **Auto-start + reconnect** — configure it once, it recovers on its own
 - **Performance controls** — pixel format, FPS cap, low-latency mode, bandwidth mode
 - **Headless HDMI** — KMS/DRM, no desktop environment required
@@ -123,6 +130,7 @@ Download the Linux SDK tarball from [ndi.tv/sdk](https://ndi.tv/sdk/) and extrac
 ```
 GET  /healthz
 GET  /api/status
+GET  /api/version
 GET  /api/settings
 PUT  /api/settings
 GET  /api/discovery
@@ -165,12 +173,25 @@ curl -X PUT http://pi-host:8080/api/settings \
 
 **Prerequisites:** Node.js 22+, Corepack, CMake 3.16+, `g++`, `libsdl2-dev`, `libasound2-dev`
 
+The repo is a pnpm workspace with two web packages:
+
+- `apps/web` — Fastify backend (REST, SSE, receiver supervision)
+- `apps/web-ui` — React + Vite SPA (built into `apps/web-ui/dist/`, served by `apps/web`)
+
 ```bash
-# Web app
+# Install + build both apps (frontend then backend)
 corepack prepare pnpm@10.7.1 --activate
 corepack pnpm install
-corepack pnpm --filter @ndi-monitor/web build
+corepack pnpm build
+
+# Backend tests
 corepack pnpm --filter @ndi-monitor/web test
+
+# Frontend dev server (Vite, proxies /api → 127.0.0.1:8080)
+corepack pnpm dev:ui
+
+# Backend dev server (tsx watch)
+corepack pnpm dev:server
 
 # Receiver (real SDK)
 cmake -S apps/receiver -B apps/receiver/build \
@@ -187,10 +208,12 @@ cmake --build apps/receiver/build -j"$(nproc)"
 
 ## Architecture
 
-- **`ndi-web.service`** — Fastify + TypeScript: UI, REST API, SSE, config, logs, and receiver supervision
+- **`ndi-web.service`** — Fastify + TypeScript backend: REST API, SSE, config, logs, receiver supervision, and serves the prebuilt SPA from `apps/web-ui/dist/` (with SPA fallback for client-side routes)
+- **`apps/web-ui`** — React 18 + Vite SPA: 5 mobile-first screens, talks to the backend only via REST + SSE
 - **`apps/receiver`** — C++17: NDI receive, reconnect, HDMI rendering via SDL2/KMS/DRM
 - The web service manages the native receiver as a child process — no second systemd service for the receiver
-- Discovery runs as a short-lived subprocess to avoid holding an NDI handle while idle
+- A `DiscoverySupervisor` in the backend runs NDI discovery every 20s while at least one SSE client is connected, then idles when nobody is watching. Each scan is merged with a 60-second TTL so senders survive single mDNS misses.
+- Discovery itself runs as a short-lived subprocess to avoid holding an NDI handle while idle
 - The standby screen (`ndi-standby.service`) draws directly to `tty1` at boot and after stop
 
 More detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)

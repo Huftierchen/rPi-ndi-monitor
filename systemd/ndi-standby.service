@@ -1,7 +1,9 @@
 [Unit]
 Description=NDI Monitor HDMI Standby Screen
-After=local-fs.target
-Before=ndi-web.service
+# Render the standby screen as the very last step of multi-user.target so
+# any kernel / systemd / late driver-init output that lands on tty1 during
+# boot has already happened and won't scroll our screen away.
+After=multi-user.target ndi-web.service network-online.target
 Conflicts=getty@tty1.service
 
 [Service]

@@ -9,14 +9,8 @@ import { EventBus } from "../events/event-bus.js";
 import { AppLogger } from "../logging/app-logger.js";
 import { LogStore } from "../logging/log-store.js";
 import { ReceiverSupervisor } from "../receiver/receiver-supervisor.js";
+import { DiscoverySupervisor } from "../receiver/discovery-supervisor.js";
 import type { LogScope } from "../types.js";
-import {
-  renderAboutPage,
-  renderDashboardPage,
-  renderLogsPage,
-  renderSettingsPage,
-  renderSourcesPage
-} from "../ui/pages.js";
 
 interface RouteContext {
   configService: ConfigService;
@@ -24,6 +18,8 @@ interface RouteContext {
   logStore: LogStore;
   logger: AppLogger;
   supervisor: ReceiverSupervisor;
+  discoverySupervisor: DiscoverySupervisor;
+  version: string;
 }
 
 const logQuerySchema = z.object({
@@ -38,39 +34,7 @@ const switchSourceSchema = z.object({
 const settingsPatchSchema: z.ZodType<AppConfigPatch> = appConfigPatchSchema;
 
 export async function registerRoutes(app: FastifyInstance, context: RouteContext): Promise<void> {
-  const { configService, events, logStore, logger, supervisor } = context;
-
-  app.get("/", async (_request, reply) => {
-    reply.type("text/html").send(renderDashboardPage(supervisor.getStatus(), configService.getCached()));
-  });
-
-  app.get("/sources", async (_request, reply) => {
-    reply
-      .type("text/html")
-      .send(
-        renderSourcesPage(
-          supervisor.getStatus(),
-          supervisor.getDiscoverySnapshot(),
-          configService.getCached()
-        )
-      );
-  });
-
-  app.get("/settings", async (_request, reply) => {
-    reply.type("text/html").send(renderSettingsPage(configService.getCached()));
-  });
-
-  app.get("/logs", async (_request, reply) => {
-    const [webLogs, receiverLogs] = await Promise.all([
-      logStore.tail("web", 120),
-      logStore.tail("receiver", 120)
-    ]);
-    reply.type("text/html").send(renderLogsPage(webLogs, receiverLogs));
-  });
-
-  app.get("/about", async (_request, reply) => {
-    reply.type("text/html").send(renderAboutPage(configService.getCached()));
-  });
+  const { configService, events, logStore, logger, supervisor, discoverySupervisor } = context;
 
   app.get("/healthz", async () => ({
     ok: true,
@@ -81,6 +45,11 @@ export async function registerRoutes(app: FastifyInstance, context: RouteContext
   app.get("/api/status", async () => ({
     ok: true,
     data: supervisor.getStatus()
+  }));
+
+  app.get("/api/version", async () => ({
+    ok: true,
+    data: { version: context.version }
   }));
 
   app.get("/api/settings", async () => ({
@@ -178,6 +147,7 @@ export async function registerRoutes(app: FastifyInstance, context: RouteContext
     let closed = false;
     let unsubscribe: (() => void) | null = null;
     let heartbeat: NodeJS.Timeout | null = null;
+    let notifiedDisconnect = false;
 
     const cleanup = (): void => {
       if (closed) {
@@ -190,6 +160,10 @@ export async function registerRoutes(app: FastifyInstance, context: RouteContext
       }
       unsubscribe?.();
       unsubscribe = null;
+      if (!notifiedDisconnect) {
+        notifiedDisconnect = true;
+        discoverySupervisor.notifyClientDisconnected();
+      }
       if (!reply.raw.destroyed && !reply.raw.writableEnded) {
         reply.raw.end();
       }
@@ -222,6 +196,8 @@ export async function registerRoutes(app: FastifyInstance, context: RouteContext
     if (discovery && !writeSseFrame(`data: ${JSON.stringify({ type: "discovery", payload: discovery })}\n\n`)) {
       return;
     }
+
+    discoverySupervisor.notifyClientConnected();
 
     unsubscribe = events.subscribe((event) => {
       writeSseFrame(`data: ${JSON.stringify(event)}\n\n`);

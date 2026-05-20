@@ -1,4 +1,5 @@
 import path from "node:path";
+import { readFile } from "node:fs/promises";
 
 import fastify from "fastify";
 import fastifyFormBody from "@fastify/formbody";
@@ -11,9 +12,27 @@ import { registerRoutes } from "./api/routes.js";
 import { AppLogger } from "./logging/app-logger.js";
 import { LogStore } from "./logging/log-store.js";
 import { ReceiverSupervisor } from "./receiver/receiver-supervisor.js";
+import { DiscoverySupervisor } from "./receiver/discovery-supervisor.js";
 import type { RuntimePaths } from "./types.js";
 
-export async function buildApp(paths: RuntimePaths) {
+export interface BuildAppOptions {
+  installSignalHandlers?: boolean;
+}
+
+async function readWebVersion(repoRoot: string): Promise<string> {
+  try {
+    const raw = await readFile(path.join(repoRoot, "apps", "web", "package.json"), "utf8");
+    const pkg = JSON.parse(raw) as { version?: string };
+    return pkg.version ?? "dev";
+  } catch {
+    return "dev";
+  }
+}
+
+export async function buildApp(paths: RuntimePaths, options: BuildAppOptions = {}) {
+  const { installSignalHandlers = true } = options;
+  const version = await readWebVersion(paths.repoRoot);
+
   const configService = new ConfigService(paths);
   const config = await configService.ensureReady();
 
@@ -28,15 +47,23 @@ export async function buildApp(paths: RuntimePaths) {
   const supervisor = new ReceiverSupervisor(paths, configService, logStore, events, logger.child("supervisor"));
   await supervisor.init();
 
+  const discoverySupervisor = new DiscoverySupervisor({
+    intervalMs: 20000,
+    discover: () => supervisor.discover(),
+    onError: (err) => { void logger.warn("Auto-discovery failed", { error: String(err) }); }
+  });
+
   const app = fastify({
     logger: false,
     disableRequestLogging: true
   });
 
   app.register(fastifyFormBody);
+  const uiDist = path.join(paths.repoRoot, "apps", "web-ui", "dist");
   app.register(fastifyStatic, {
-    root: path.join(paths.repoRoot, "apps", "web", "src", "ui", "assets"),
-    prefix: "/assets/"
+    root: uiDist,
+    prefix: "/",
+    decorateReply: false
   });
 
   app.setErrorHandler(async (error, _request, reply) => {
@@ -54,22 +81,41 @@ export async function buildApp(paths: RuntimePaths) {
     events,
     logStore,
     logger,
-    supervisor
+    supervisor,
+    discoverySupervisor,
+    version
+  });
+
+  app.setNotFoundHandler(async (request, reply) => {
+    const url = request.url;
+    if (url.startsWith("/api/") || url === "/healthz") {
+      reply.status(404).send({ ok: false, error: "Not found" });
+      return;
+    }
+    try {
+      const html = await readFile(path.join(uiDist, "index.html"), "utf8");
+      reply.type("text/html").send(html);
+    } catch {
+      reply.status(500).send({ ok: false, error: "UI bundle missing — run pnpm build:ui" });
+    }
   });
 
   async function shutdown(signal: NodeJS.Signals): Promise<void> {
     await logger.info("Shutting down web service", { signal });
+    discoverySupervisor.dispose();
     await supervisor.dispose();
     await app.close();
     process.exit(0);
   }
 
-  process.once("SIGINT", () => {
-    void shutdown("SIGINT");
-  });
-  process.once("SIGTERM", () => {
-    void shutdown("SIGTERM");
-  });
+  if (installSignalHandlers) {
+    process.once("SIGINT", () => {
+      void shutdown("SIGINT");
+    });
+    process.once("SIGTERM", () => {
+      void shutdown("SIGTERM");
+    });
+  }
 
   return {
     app,

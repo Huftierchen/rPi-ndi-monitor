@@ -7,9 +7,13 @@
     "node": ">=22.0.0"
   },
   "scripts": {
-    "build": "pnpm -r build",
+    "build": "pnpm --filter @ndi-monitor/web-ui build && pnpm --filter @ndi-monitor/web build",
+    "build:ui": "pnpm --filter @ndi-monitor/web-ui build",
+    "build:server": "pnpm --filter @ndi-monitor/web build",
     "clean": "pnpm -r clean",
-    "dev": "pnpm --filter @ndi-monitor/web dev",
+    "dev": "pnpm --filter @ndi-monitor/web-ui dev",
+    "dev:ui": "pnpm --filter @ndi-monitor/web-ui dev",
+    "dev:server": "pnpm --filter @ndi-monitor/web dev",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck"
   }

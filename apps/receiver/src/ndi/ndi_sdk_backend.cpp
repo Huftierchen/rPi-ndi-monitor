@@ -277,7 +277,31 @@ class NdiSdkBackend final : public INdiBackend {
       return result;
     }
 
-    NDIlib_find_wait_for_sources(finder, timeout_ms);
+    // NDIlib_find_wait_for_sources returns as soon as the source list changes
+    // at all — not when it's stable. mDNS replies are staggered (each sender
+    // jitters its response), so a single wait_for_sources easily catches only
+    // a partial list. Keep waiting in short windows until either the total
+    // timeout budget is spent or no new sources have arrived for 500ms
+    // (the list has settled).
+    constexpr int kQuietWindowMs = 500;
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms);
+    while (true) {
+      const auto now = std::chrono::steady_clock::now();
+      if (now >= deadline) {
+        break;
+      }
+      const auto remaining =
+          std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now).count();
+      const uint32_t wait_ms = static_cast<uint32_t>(std::min<int64_t>(kQuietWindowMs, remaining));
+      if (wait_ms == 0) {
+        break;
+      }
+      if (!NDIlib_find_wait_for_sources(finder, wait_ms)) {
+        // No source-list change during this quiet window — list is settled.
+        break;
+      }
+    }
+
     uint32_t count = 0;
     const NDIlib_source_t* sources = NDIlib_find_get_current_sources(finder, &count);
     for (uint32_t index = 0; index < count; ++index) {
@@ -295,7 +319,11 @@ class NdiSdkBackend final : public INdiBackend {
   void ProbeSourceMetadata(NdiSource& source, int timeout_ms) {
     NDIlib_recv_create_v3_t recv_desc {};
     recv_desc.color_format = NDIlib_recv_color_format_fastest;
-    recv_desc.bandwidth = NDIlib_recv_bandwidth_lowest;
+    // Probe at full bandwidth: NDIlib_recv_bandwidth_lowest is the sender's
+    // proxy stream which is hardcoded to ~640px wide, so it would always
+    // report 640x360 instead of the real sender resolution. We only capture
+    // one frame then disconnect, so the bandwidth cost is negligible.
+    recv_desc.bandwidth = NDIlib_recv_bandwidth_highest;
     recv_desc.allow_video_fields = false;
 
     NDIlib_recv_instance_t probe_instance = NDIlib_recv_create_v3(&recv_desc);

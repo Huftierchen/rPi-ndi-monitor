@@ -61,7 +61,7 @@ build_project() {
 
   cd "${PROJECT_ROOT}"
   CI=1 corepack pnpm install --force
-  corepack pnpm --filter @ndi-monitor/web build
+  corepack pnpm build
 
   local cmake_args=("-S" "apps/receiver" "-B" "apps/receiver/build")
   if [[ -n "${NDI_SDK_DIR:-}" ]]; then
