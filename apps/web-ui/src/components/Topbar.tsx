@@ -20,7 +20,7 @@ function colorVar(color: BrandColor): string {
 const TABS: { to: string; id: string; icon: string; label: string }[] = [
   { to: "/", id: "dashboard", icon: "◇", label: "Dash" },
   { to: "/sources", id: "sources", icon: "⌖", label: "Src" },
-  { to: "/settings", id: "settings", icon: "⚙", label: "Cfg" },
+  { to: "/settings", id: "settings", icon: "⌬", label: "Cfg" },
   { to: "/logs", id: "logs", icon: "≡", label: "Log" },
   { to: "/about", id: "about", icon: "ⓘ", label: "Info" }
 ];

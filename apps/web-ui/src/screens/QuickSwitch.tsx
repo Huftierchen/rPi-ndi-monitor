@@ -83,7 +83,7 @@ export function QuickSwitch() {
               disabled={entry.current || busy}
             >
               <div className="qi-icon">
-                {entry.current ? "●" : (i + 1).toString().padStart(2, "0")}
+                {entry.current ? "✓" : (i + 1).toString().padStart(2, "0")}
               </div>
               <div className="qi-body">
                 <div className="qi-name">{entry.name}</div>

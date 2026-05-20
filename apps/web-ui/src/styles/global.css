@@ -92,19 +92,23 @@ body {
   padding: 10px 4px 11px;
   border: none;
   background: transparent;
-  color: var(--fg-mute);
+  color: var(--fg-dim);
   font-family: var(--ff-ui);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.12em;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
   cursor: pointer;
   border-bottom: 2px solid transparent;
   text-transform: uppercase;
   transition: color 0.1s;
 }
+.tab:hover {
+  color: var(--fg);
+}
 .tab .tab-icon {
-  font-size: 16px;
+  font-size: 18px;
   line-height: 1;
+  font-family: var(--ff-mono);
 }
 .tab.active {
   color: var(--cyan);
