@@ -48,7 +48,7 @@ export async function buildApp(paths: RuntimePaths, options: BuildAppOptions = {
   await supervisor.init();
 
   const discoverySupervisor = new DiscoverySupervisor({
-    intervalMs: 5000,
+    intervalMs: 20000,
     discover: () => supervisor.discover(),
     onError: (err) => { void logger.warn("Auto-discovery failed", { error: String(err) }); }
   });

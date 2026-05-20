@@ -123,7 +123,7 @@ export function Sources() {
                 color: "var(--fg-dim)"
               }}
             >
-              AUTO 5s
+              AUTO 20s
             </span>
           </div>
         </div>

@@ -49,8 +49,8 @@ function sanitizeDiscoverySource(source: DiscoverySource): DiscoverySource {
   };
 }
 
-const DISCOVERY_DEFAULT_TIMEOUT_MS = 6000;
-const DISCOVERY_SOURCE_TTL_MS = 20000;
+const DISCOVERY_DEFAULT_TIMEOUT_MS = 10000;
+const DISCOVERY_SOURCE_TTL_MS = 60000;
 
 export class ReceiverSupervisor {
   private child: ChildProcess | null = null;
