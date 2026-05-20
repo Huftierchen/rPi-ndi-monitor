@@ -16,7 +16,7 @@ function computeElapsed(snapshot: DiscoverySnapshot | null): number | null {
 }
 
 export function Sources() {
-  const { status, config, discovery, showFlash } = useAppState();
+  const { status, config, discovery, showFlash, setConfig } = useAppState();
   const { busy, run } = useControlAction();
   const [isScanning, setIsScanning] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState<boolean>(() => {
@@ -57,7 +57,8 @@ export function Sources() {
 
   async function handleUseAndStart(src: DiscoverySource): Promise<void> {
     await run(async () => {
-      await api.switchSource(src.name);
+      const updated = await api.switchSource(src.name);
+      setConfig(updated);
       if (!isReceiverRunning(status)) {
         await api.start();
       }

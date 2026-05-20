@@ -24,7 +24,7 @@ function toEntry(src: DiscoverySource, current: boolean): QuickEntry {
 }
 
 export function QuickSwitch() {
-  const { status, config, discovery, showFlash } = useAppState();
+  const { status, config, discovery, showFlash, setConfig } = useAppState();
   const [busy, setBusy] = useState(false);
   const configured = config?.receiver.sourceName ?? "";
 
@@ -48,7 +48,8 @@ export function QuickSwitch() {
   async function handleSwitch(name: string): Promise<void> {
     setBusy(true);
     try {
-      await api.switchSource(name);
+      const updated = await api.switchSource(name);
+      setConfig(updated);
       if (!isReceiverRunning(status)) {
         await api.start();
       }
