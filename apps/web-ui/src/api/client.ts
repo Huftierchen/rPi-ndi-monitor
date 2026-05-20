@@ -8,10 +8,11 @@ import type {
 const base = "";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(base + path, {
-    headers: { "content-type": "application/json", ...(init?.headers ?? {}) },
-    ...init
-  });
+  const headers: Record<string, string> = { ...(init?.headers as Record<string, string> | undefined) };
+  if (init?.body != null && headers["content-type"] === undefined) {
+    headers["content-type"] = "application/json";
+  }
+  const res = await fetch(base + path, { ...init, headers });
   const json = (await res.json().catch(() => ({}))) as { ok?: boolean; data?: unknown; error?: string };
   if (!res.ok || json.ok === false) {
     throw new Error(json.error ?? `Request failed: ${res.status}`);
