@@ -1,7 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Accordion,
-  Button,
   Field,
   SectionLabel,
   SegmentSwitch,
@@ -9,7 +8,6 @@ import {
   ToggleRow,
 } from '../components/primitives.tsx';
 import { useAppState } from '../state/AppState.tsx';
-import { useControlAction } from '../utils/useControlAction.ts';
 import { isReceiverRunning } from '../utils/status.ts';
 import { api } from '../api/client.ts';
 import type {
@@ -31,6 +29,7 @@ import {
 } from '../api/options.ts';
 
 type Mode = 'quick' | 'advanced';
+type SaveState = 'idle' | 'saving' | 'saved' | 'error';
 
 function cloneConfig(c: AppConfig): AppConfig {
   return {
@@ -47,19 +46,103 @@ function cloneConfig(c: AppConfig): AppConfig {
 
 export function Settings() {
   const { config, status, setConfig } = useAppState();
-  const { busy, run } = useControlAction();
   const [mode, setMode] = useState<Mode>('quick');
   const [draft, setDraft] = useState<AppConfig | null>(config ? cloneConfig(config) : null);
-  const [dirty, setDirty] = useState(false);
 
-  // Re-sync draft when the upstream config reference changes (after save or external update).
-  // Incoming config = new baseline = nothing pending.
+  const [saveState, setSaveState] = useState<SaveState>('idle');
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [savedWhileRunning, setSavedWhileRunning] = useState(false);
+
+  const pendingDraftRef = useRef<AppConfig | null>(null);
+  const inFlightRef = useRef(false);
+  const debounceRef = useRef<number | null>(null);
+  const savedHideTimerRef = useRef<number | null>(null);
+  const statusRef = useRef(status);
+
+  useEffect(() => {
+    statusRef.current = status;
+  }, [status]);
+
+  // Re-sync draft when upstream config reference changes (after external update).
   useEffect(() => {
     if (config) {
       setDraft(cloneConfig(config));
-      setDirty(false);
     }
   }, [config]);
+
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current !== null) window.clearTimeout(debounceRef.current);
+      if (savedHideTimerRef.current !== null) window.clearTimeout(savedHideTimerRef.current);
+    };
+  }, []);
+
+  async function flushPersist(): Promise<void> {
+    if (inFlightRef.current) return;
+    const next = pendingDraftRef.current;
+    if (!next) return;
+    pendingDraftRef.current = null;
+    inFlightRef.current = true;
+    const wasRunning = isReceiverRunning(statusRef.current);
+    setSaveState('saving');
+    setSaveError(null);
+    try {
+      const updated = await api.putConfig(next);
+      setConfig(updated);
+      setSavedWhileRunning(wasRunning);
+      setSaveState('saved');
+      if (savedHideTimerRef.current !== null) {
+        window.clearTimeout(savedHideTimerRef.current);
+      }
+      savedHideTimerRef.current = window.setTimeout(() => {
+        savedHideTimerRef.current = null;
+        setSaveState((s) => (s === 'saved' ? 'idle' : s));
+      }, 1500);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : String(err));
+      setSaveState('error');
+    } finally {
+      inFlightRef.current = false;
+      if (pendingDraftRef.current) {
+        void flushPersist();
+      }
+    }
+  }
+
+  function scheduleSave(next: AppConfig, immediate: boolean): void {
+    pendingDraftRef.current = next;
+    if (debounceRef.current !== null) {
+      window.clearTimeout(debounceRef.current);
+      debounceRef.current = null;
+    }
+    if (immediate) {
+      void flushPersist();
+    } else {
+      debounceRef.current = window.setTimeout(() => {
+        debounceRef.current = null;
+        void flushPersist();
+      }, 400);
+    }
+  }
+
+  function mutate(producer: (current: AppConfig) => AppConfig, immediate: boolean): void {
+    setDraft((current) => {
+      if (!current) return current;
+      const next = producer(current);
+      scheduleSave(next, immediate);
+      return next;
+    });
+  }
+
+  function flushPending(): void {
+    if (debounceRef.current !== null) {
+      window.clearTimeout(debounceRef.current);
+      debounceRef.current = null;
+    }
+    if (pendingDraftRef.current) {
+      void flushPersist();
+    }
+  }
 
   if (!draft || !config) {
     return (
@@ -69,64 +152,25 @@ export function Settings() {
     );
   }
 
-  // Targeted setters — every mutation marks the draft as dirty.
-  const setReceiver = (patch: Partial<AppConfig['receiver']>) => {
-    setDraft((d) => (d ? { ...d, receiver: { ...d.receiver, ...patch } } : d));
-    setDirty(true);
-  };
-  const setReconnect = (patch: Partial<AppConfig['receiver']['reconnect']>) => {
-    setDraft((d) =>
-      d
-        ? {
-            ...d,
-            receiver: {
-              ...d.receiver,
-              reconnect: { ...d.receiver.reconnect, ...patch },
-            },
-          }
-        : d,
-    );
-    setDirty(true);
-  };
-  const setServer = (patch: Partial<AppConfig['server']>) => {
-    setDraft((d) => (d ? { ...d, server: { ...d.server, ...patch } } : d));
-    setDirty(true);
-  };
-  const setLogging = (patch: Partial<AppConfig['logging']>) => {
-    setDraft((d) => (d ? { ...d, logging: { ...d.logging, ...patch } } : d));
-    setDirty(true);
-  };
-  const setDisplay = (patch: Partial<AppConfig['display']>) => {
-    setDraft((d) => (d ? { ...d, display: { ...d.display, ...patch } } : d));
-    setDirty(true);
-  };
-  const setDevice = (patch: Partial<AppConfig['device']>) => {
-    setDraft((d) => (d ? { ...d, device: { ...d.device, ...patch } } : d));
-    setDirty(true);
-  };
-
-  async function handleSave() {
-    if (!draft) return;
-    await run(async () => {
-      const updated = await api.putConfig(draft);
-      setConfig(updated);
-      setDraft(cloneConfig(updated));
-      setDirty(false);
-    }, 'Settings saved');
-  }
-
   const sourceInput = (
     <input
       type="text"
       value={draft.receiver.sourceName}
-      onChange={(e) => setReceiver({ sourceName: e.target.value })}
+      onChange={(e) => {
+        const v = e.target.value;
+        mutate((d) => ({ ...d, receiver: { ...d.receiver, sourceName: v } }), false);
+      }}
+      onBlur={flushPending}
     />
   );
 
   const scaleSelect = (
     <select
       value={draft.receiver.scaleMode}
-      onChange={(e) => setReceiver({ scaleMode: e.target.value as ScaleMode })}
+      onChange={(e) => {
+        const v = e.target.value as ScaleMode;
+        mutate((d) => ({ ...d, receiver: { ...d.receiver, scaleMode: v } }), true);
+      }}
     >
       {SCALE_MODES.map((m) => (
         <option key={m} value={m}>
@@ -139,7 +183,10 @@ export function Settings() {
   const colorSelect = (
     <select
       value={draft.receiver.colorFormat}
-      onChange={(e) => setReceiver({ colorFormat: e.target.value as ColorFormat })}
+      onChange={(e) => {
+        const v = e.target.value as ColorFormat;
+        mutate((d) => ({ ...d, receiver: { ...d.receiver, colorFormat: v } }), true);
+      }}
     >
       {COLOR_FORMATS.map((m) => (
         <option key={m} value={m}>
@@ -148,6 +195,44 @@ export function Settings() {
       ))}
     </select>
   );
+
+  const saveIndicator =
+    saveState === 'idle' ? null : (
+      <div
+        style={{
+          fontFamily: 'var(--ff-mono)',
+          fontSize: 11,
+          fontWeight: 700,
+          letterSpacing: '0.2em',
+          textTransform: 'uppercase',
+          padding: '8px 12px',
+          marginTop: 10,
+          border: `1px solid ${
+            saveState === 'saved'
+              ? 'var(--green)'
+              : saveState === 'error'
+                ? 'var(--red)'
+                : 'var(--cyan)'
+          }`,
+          color:
+            saveState === 'saved'
+              ? 'var(--green)'
+              : saveState === 'error'
+                ? 'var(--red)'
+                : 'var(--cyan)',
+          background:
+            saveState === 'saved'
+              ? 'rgba(29,237,131,0.08)'
+              : saveState === 'error'
+                ? 'rgba(247,80,73,0.08)'
+                : 'rgba(94,246,255,0.08)',
+        }}
+      >
+        {saveState === 'saving' && '⌛ SAVING…'}
+        {saveState === 'saved' && (savedWhileRunning ? '✓ SAVED · RECEIVER RESTART' : '✓ SAVED')}
+        {saveState === 'error' && `✕ ${saveError ?? 'Save failed'}`}
+      </div>
+    );
 
   return (
     <>
@@ -160,6 +245,8 @@ export function Settings() {
         value={mode}
         onChange={setMode}
       />
+
+      {saveIndicator}
 
       {mode === 'quick' ? (
         <>
@@ -177,13 +264,17 @@ export function Settings() {
               label="LOW LATENCY MODE"
               sub="Skip prebuffering · drops fewer frames"
               on={draft.receiver.lowLatencyMode}
-              onChange={(v) => setReceiver({ lowLatencyMode: v })}
+              onChange={(v) =>
+                mutate((d) => ({ ...d, receiver: { ...d.receiver, lowLatencyMode: v } }), true)
+              }
             />
             <ToggleRow
               label="START ON BOOT"
               sub="Auto-connect after appliance reboots"
               on={draft.receiver.autoStart}
-              onChange={(v) => setReceiver({ autoStart: v })}
+              onChange={(v) =>
+                mutate((d) => ({ ...d, receiver: { ...d.receiver, autoStart: v } }), true)
+              }
             />
           </div>
 
@@ -226,9 +317,13 @@ export function Settings() {
             <Field label="NDI BANDWIDTH MODE" hint="NETWORK">
               <select
                 value={draft.receiver.bandwidthMode}
-                onChange={(e) =>
-                  setReceiver({ bandwidthMode: e.target.value as BandwidthMode })
-                }
+                onChange={(e) => {
+                  const v = e.target.value as BandwidthMode;
+                  mutate(
+                    (d) => ({ ...d, receiver: { ...d.receiver, bandwidthMode: v } }),
+                    true,
+                  );
+                }}
               >
                 {BANDWIDTH_MODES.map((m) => (
                   <option key={m} value={m}>
@@ -244,12 +339,16 @@ export function Settings() {
               label="AUDIO OVER HDMI"
               sub="Mute HDMI audio when off"
               on={draft.receiver.audioEnabled}
-              onChange={(v) => setReceiver({ audioEnabled: v })}
+              onChange={(v) =>
+                mutate((d) => ({ ...d, receiver: { ...d.receiver, audioEnabled: v } }), true)
+              }
             />
             <Field label="OUTPUT FPS CAP" hint="0 = UNLIMITED">
               <Stepper
                 value={draft.receiver.outputFpsCap}
-                onChange={(v) => setReceiver({ outputFpsCap: v })}
+                onChange={(v) =>
+                  mutate((d) => ({ ...d, receiver: { ...d.receiver, outputFpsCap: v } }), true)
+                }
                 min={0}
                 max={120}
                 step={1}
@@ -259,13 +358,17 @@ export function Settings() {
               label="LOW LATENCY MODE"
               sub="Skip prebuffering · drops fewer frames"
               on={draft.receiver.lowLatencyMode}
-              onChange={(v) => setReceiver({ lowLatencyMode: v })}
+              onChange={(v) =>
+                mutate((d) => ({ ...d, receiver: { ...d.receiver, lowLatencyMode: v } }), true)
+              }
             />
             <ToggleRow
               label="START ON BOOT"
               sub="Auto-connect after appliance reboots"
               on={draft.receiver.autoStart}
-              onChange={(v) => setReceiver({ autoStart: v })}
+              onChange={(v) =>
+                mutate((d) => ({ ...d, receiver: { ...d.receiver, autoStart: v } }), true)
+              }
             />
           </Accordion>
 
@@ -274,12 +377,34 @@ export function Settings() {
               label="AUTOMATIC RECONNECT"
               sub="Retry on disconnect with backoff"
               on={draft.receiver.reconnect.enabled}
-              onChange={(v) => setReconnect({ enabled: v })}
+              onChange={(v) =>
+                mutate(
+                  (d) => ({
+                    ...d,
+                    receiver: {
+                      ...d.receiver,
+                      reconnect: { ...d.receiver.reconnect, enabled: v },
+                    },
+                  }),
+                  true,
+                )
+              }
             />
             <Field label="INITIAL RETRY DELAY MS" hint="MS">
               <Stepper
                 value={draft.receiver.reconnect.initialDelayMs}
-                onChange={(v) => setReconnect({ initialDelayMs: v })}
+                onChange={(v) =>
+                  mutate(
+                    (d) => ({
+                      ...d,
+                      receiver: {
+                        ...d.receiver,
+                        reconnect: { ...d.receiver.reconnect, initialDelayMs: v },
+                      },
+                    }),
+                    true,
+                  )
+                }
                 min={0}
                 max={60000}
                 step={100}
@@ -288,7 +413,18 @@ export function Settings() {
             <Field label="MAXIMUM RETRY DELAY MS" hint="MS">
               <Stepper
                 value={draft.receiver.reconnect.maxDelayMs}
-                onChange={(v) => setReconnect({ maxDelayMs: v })}
+                onChange={(v) =>
+                  mutate(
+                    (d) => ({
+                      ...d,
+                      receiver: {
+                        ...d.receiver,
+                        reconnect: { ...d.receiver.reconnect, maxDelayMs: v },
+                      },
+                    }),
+                    true,
+                  )
+                }
                 min={0}
                 max={600000}
                 step={1000}
@@ -303,8 +439,20 @@ export function Settings() {
                 value={draft.receiver.reconnect.backoffMultiplier}
                 onChange={(e) => {
                   const n = Number(e.target.value);
-                  if (Number.isFinite(n)) setReconnect({ backoffMultiplier: n });
+                  if (Number.isFinite(n)) {
+                    mutate(
+                      (d) => ({
+                        ...d,
+                        receiver: {
+                          ...d.receiver,
+                          reconnect: { ...d.receiver.reconnect, backoffMultiplier: n },
+                        },
+                      }),
+                      false,
+                    );
+                  }
                 }}
+                onBlur={flushPending}
               />
             </Field>
           </Accordion>
@@ -314,13 +462,19 @@ export function Settings() {
               <input
                 type="text"
                 value={draft.server.host}
-                onChange={(e) => setServer({ host: e.target.value })}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  mutate((d) => ({ ...d, server: { ...d.server, host: v } }), false);
+                }}
+                onBlur={flushPending}
               />
             </Field>
             <Field label="SERVER PORT" hint="TCP">
               <Stepper
                 value={draft.server.port}
-                onChange={(v) => setServer({ port: v })}
+                onChange={(v) =>
+                  mutate((d) => ({ ...d, server: { ...d.server, port: v } }), true)
+                }
                 min={1}
                 max={65535}
                 step={1}
@@ -329,7 +483,10 @@ export function Settings() {
             <Field label="LOGGING LEVEL" hint="VERBOSITY">
               <select
                 value={draft.logging.level}
-                onChange={(e) => setLogging({ level: e.target.value as LogLevel })}
+                onChange={(e) => {
+                  const v = e.target.value as LogLevel;
+                  mutate((d) => ({ ...d, logging: { ...d.logging, level: v } }), true);
+                }}
               >
                 {LOG_LEVELS.map((m) => (
                   <option key={m} value={m}>
@@ -342,12 +499,16 @@ export function Settings() {
               label="WRITE JSON LOGS"
               sub="Structured machine-readable logs"
               on={draft.logging.json}
-              onChange={(v) => setLogging({ json: v })}
+              onChange={(v) =>
+                mutate((d) => ({ ...d, logging: { ...d.logging, json: v } }), true)
+              }
             />
             <Field label="MAXIMUM LOG FILES" hint="ROTATION">
               <Stepper
                 value={draft.logging.maxFiles}
-                onChange={(v) => setLogging({ maxFiles: v })}
+                onChange={(v) =>
+                  mutate((d) => ({ ...d, logging: { ...d.logging, maxFiles: v } }), true)
+                }
                 min={1}
                 max={100}
                 step={1}
@@ -356,7 +517,9 @@ export function Settings() {
             <Field label="MAXIMUM LOG SIZE MB" hint="PER FILE">
               <Stepper
                 value={draft.logging.maxSizeMb}
-                onChange={(v) => setLogging({ maxSizeMb: v })}
+                onChange={(v) =>
+                  mutate((d) => ({ ...d, logging: { ...d.logging, maxSizeMb: v } }), true)
+                }
                 min={1}
                 max={1024}
                 step={1}
@@ -369,43 +532,36 @@ export function Settings() {
               label="FULLSCREEN OUTPUT"
               sub="Render fullscreen on HDMI"
               on={draft.display.fullscreen}
-              onChange={(v) => setDisplay({ fullscreen: v })}
+              onChange={(v) =>
+                mutate((d) => ({ ...d, display: { ...d.display, fullscreen: v } }), true)
+              }
             />
             <Field label="HDMI OUTPUT HINT" hint="OPTIONAL">
               <input
                 type="text"
                 placeholder="auto"
                 value={draft.display.hdmiOutputHint}
-                onChange={(e) => setDisplay({ hdmiOutputHint: e.target.value })}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  mutate((d) => ({ ...d, display: { ...d.display, hdmiOutputHint: v } }), false);
+                }}
+                onBlur={flushPending}
               />
             </Field>
             <Field label="DEVICE NAME" hint="APPLIANCE LABEL">
               <input
                 type="text"
                 value={draft.device.name}
-                onChange={(e) => setDevice({ name: e.target.value })}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  mutate((d) => ({ ...d, device: { ...d.device, name: v } }), false);
+                }}
+                onBlur={flushPending}
               />
             </Field>
           </Accordion>
         </div>
       )}
-
-      {isReceiverRunning(status) && (
-        <p className="note">
-          Receiver is running — saving will trigger a controlled restart.
-        </p>
-      )}
-
-      <div style={{ marginTop: 16 }}>
-        <Button
-          variant="primary"
-          full
-          disabled={busy || !dirty}
-          onClick={handleSave}
-        >
-          ◇ SAVE SETTINGS
-        </Button>
-      </div>
     </>
   );
 }
