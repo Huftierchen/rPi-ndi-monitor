@@ -6,6 +6,11 @@ The Pi boots headless, renders one NDI source fullscreen over KMS/DRM, and serve
 
 > **NDI SDK required.** The SDK is not included — download it separately from [ndi.tv](https://ndi.tv/sdk/). See [NDI SDK](#ndi-sdk) below.
 
+|  |  |  |
+|:---:|:---:|:---:|
+| ![Standby screen on HDMI with QR code](docs/img/01-standby-screen.jpg) | ![Mobile-first Web UI tabs](docs/img/02-webui.jpg) | ![NDI source playing fullscreen](docs/img/03-running-screen.jpg) |
+| **1.** Boot → standby on HDMI with hostname, IP and QR code | **2.** Scan QR → drive the appliance from your phone (Dashboard, Sources, Settings) | **3.** Pick a source → it plays fullscreen over HDMI |
+
 ---
 
 ## Why this exists
