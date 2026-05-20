@@ -295,7 +295,11 @@ class NdiSdkBackend final : public INdiBackend {
   void ProbeSourceMetadata(NdiSource& source, int timeout_ms) {
     NDIlib_recv_create_v3_t recv_desc {};
     recv_desc.color_format = NDIlib_recv_color_format_fastest;
-    recv_desc.bandwidth = NDIlib_recv_bandwidth_lowest;
+    // Probe at full bandwidth: NDIlib_recv_bandwidth_lowest is the sender's
+    // proxy stream which is hardcoded to ~640px wide, so it would always
+    // report 640x360 instead of the real sender resolution. We only capture
+    // one frame then disconnect, so the bandwidth cost is negligible.
+    recv_desc.bandwidth = NDIlib_recv_bandwidth_highest;
     recv_desc.allow_video_fields = false;
 
     NDIlib_recv_instance_t probe_instance = NDIlib_recv_create_v3(&recv_desc);
