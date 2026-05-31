@@ -22,7 +22,7 @@ The Pi boots headless, renders one NDI source fullscreen over KMS/DRM, and serve
 
 ## Why this exists
 
-Dedicated NDI receivers are expensive. A Raspberry Pi is cheap by comparison — still well below many off-the-shelf professional boxes — fits in your hand, and runs 24/7 at low power. (Exact pricing is hard to pin down right now: the ongoing memory shortage keeps board prices volatile, so no fixed number here.) This turns it into a zero-config appliance:
+Dedicated NDI receivers are expensive. A Raspberry Pi is cheap by comparison — still well below many off-the-shelf professional boxes — fits in your hand, and runs 24/7 at low power. This turns it into a zero-config appliance:
 
 - Boot → standby screen appears on HDMI with URL and QR code
 - Scan QR → Web UI opens on your phone
