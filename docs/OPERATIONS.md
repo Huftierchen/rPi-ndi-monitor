@@ -226,6 +226,59 @@ sudo ./update.sh
 
 `update.sh` pulls latest changes itself (as the repo owner). Pass `SKIP_GIT_PULL=1` to update from already-checked-out code.
 
+## If an NDI HX Source Shows "Video decoder not found"
+
+NDI HX sources use H.264/H.265 video and AAC audio instead of the SpeedHQ codec of
+full NDI. The NDI runtime decodes them through the system `libavcodec`. Debian/Pi OS
+splits FFmpeg so that the patent-encumbered H.264/H.265/AAC decoders live only in the
+`libavcodec-extra` package. If that package is missing, HX sources fail on the HDMI
+screen with `NDI Video decoder not found` while full NDI sources keep working.
+
+`install.sh` installs these codecs automatically. If you see the error anyway, verify
+and repair the runtime manually:
+
+```bash
+# is a libavcodec present at all?
+ldconfig -p | grep libavcodec
+
+# install the codecs and refresh the linker cache
+sudo apt-get update
+sudo apt-get install -y ffmpeg libavcodec-extra
+sudo ldconfig
+```
+
+Then restart the receiver (`/api/control/restart` or the dashboard) and recheck the
+HX source.
+
+### Fallback: a specific `libavcodec.so` major version is missing
+
+A different failure mode exists when an NDI build is linked against an FFmpeg major
+version that the distribution no longer ships (historically `libavcodec.so.58` from
+FFmpeg 4.x). In that case the package above will not help because the requested
+SONAME is simply absent. Check what the NDI runtime is asking for:
+
+```bash
+ldd /opt/ndi-monitor/lib/libndi.so* | grep -i avcodec
+```
+
+If it requires a major version that is not installed, build the matching FFmpeg from
+source with shared libraries and place it under `/usr/local/lib`:
+
+```bash
+sudo apt-get install -y build-essential nasm
+git clone https://git.ffmpeg.org/ffmpeg.git
+cd ffmpeg
+git checkout n4.4.5            # use the major version the NDI runtime requests
+./configure --enable-shared --disable-static
+make -j"$(nproc)"
+DESTDIR=staging make install
+sudo cp -v staging/usr/local/lib/*.so.* /usr/local/lib/
+sudo ldconfig
+```
+
+This fallback was not needed with the NDI v6 SDK on Bookworm; it is documented for
+other NDI/FFmpeg combinations.
+
 ## Remaining Operational Risks
 
 - HDMI audio should still be validated on the final target system with a real signal path

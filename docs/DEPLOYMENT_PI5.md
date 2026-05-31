@@ -15,6 +15,7 @@ Note: the current verified runtime box in this repository is a Raspberry Pi 4, b
 `install.sh` (at the repo root) builds and installs the full stack:
 
 - enables `pnpm` via Corepack
+- installs the NDI HX runtime codecs (`ffmpeg`, `libavcodec-extra`) via `apt-get`
 - builds the web app and native receiver
 - copies the repo to `/opt/ndi-monitor`
 - copies NDI runtime libraries to `/opt/ndi-monitor/lib` for real SDK builds
@@ -44,6 +45,30 @@ sudo apt-get install -y gh git-lfs
 ```
 
 Node.js 22+ is required. The project scripts activate `pnpm` through Corepack.
+
+## NDI HX Codecs
+
+NDI HX sources are H.264/H.265 with AAC audio (unlike full NDI/SpeedHQ). The NDI
+runtime decodes them through the system `libavcodec` at runtime. Debian/Pi OS only
+ships the H.264/H.265/AAC decoders in the `libavcodec-extra` package, so without it
+HX sources fail on screen with `NDI Video decoder not found` while full NDI sources
+still work.
+
+`install.sh` therefore installs the runtime codecs automatically:
+
+```bash
+sudo apt-get install -y ffmpeg libavcodec-extra
+```
+
+If you manage these packages yourself, skip the automatic step with:
+
+```bash
+sudo INSTALL_RUNTIME_CODECS=0 ./install.sh
+```
+
+This was verified against the NDI v6 Linux SDK on Raspberry Pi OS Bookworm. See
+`docs/OPERATIONS.md` for the fallback if a different NDI/FFmpeg combination still
+reports a missing decoder.
 
 ## Prepare the NDI SDK
 

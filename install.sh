@@ -6,6 +6,7 @@ INSTALL_ROOT="${INSTALL_ROOT:-/opt/ndi-monitor}"
 SYSTEM_USER="${SYSTEM_USER:-ndi-monitor}"
 ALLOW_STUB_BACKEND="${ALLOW_STUB_BACKEND:-0}"
 BOOT_CMDLINE="${BOOT_CMDLINE:-/boot/cmdline.txt}"
+INSTALL_RUNTIME_CODECS="${INSTALL_RUNTIME_CODECS:-1}"
 
 require_command() {
   command -v "$1" >/dev/null 2>&1 || {
@@ -51,6 +52,27 @@ configure_user() {
   fi
 
   usermod --append --groups "${group_list}" "${SYSTEM_USER}"
+}
+
+install_runtime_codecs() {
+  if [[ "${INSTALL_RUNTIME_CODECS}" != "1" ]]; then
+    echo "INSTALL_RUNTIME_CODECS=${INSTALL_RUNTIME_CODECS}, skipping codec install"
+    return 0
+  fi
+
+  if ! command -v apt-get >/dev/null 2>&1; then
+    echo "apt-get not found, skipping codec install (install ffmpeg + libavcodec-extra manually)" >&2
+    return 0
+  fi
+
+  # NDI HX streams are H.264/H.265/AAC and the NDI runtime loads its decoder
+  # from the system libavcodec at runtime. Debian ships the patent-encumbered
+  # H.264/H.265/AAC decoders only in libavcodec-extra, so without it HX sources
+  # fail with "NDI Video decoder not found" while full NDI still works.
+  echo "installing NDI HX runtime codecs (ffmpeg, libavcodec-extra)"
+  apt-get update
+  apt-get install -y ffmpeg libavcodec-extra
+  ldconfig
 }
 
 build_project() {
@@ -184,6 +206,7 @@ main() {
   NODE_BIN="$(command -v node)"
   require_command install
   configure_user
+  install_runtime_codecs
   build_project
   install_files
   install_runtime_dependencies
