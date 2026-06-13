@@ -6,6 +6,7 @@
 #include <string>
 
 #include "../src/cli.h"
+#include "../src/display_mode.h"
 #include "../src/logger.h"
 #include "../src/status_writer.h"
 
@@ -90,6 +91,38 @@ void test_cli_validation() {
   }
 }
 
+void test_display_mode() {
+  using ndi_receiver::DisplayMode;
+  using ndi_receiver::SelectDisplayMode;
+
+  expect(ndi_receiver::IsValidOutputModeSpec("auto"), "auto is a valid spec");
+  expect(ndi_receiver::IsValidOutputModeSpec("1920x1080@60"), "WxH@Hz is a valid spec");
+  expect(!ndi_receiver::IsValidOutputModeSpec("1080p"), "1080p is not a valid spec");
+  expect(!ndi_receiver::IsValidOutputModeSpec("1920x1080"), "missing @Hz is invalid");
+
+  std::vector<DisplayMode> modes = {
+      DisplayMode{3840, 2160, 60, true, true},
+      DisplayMode{1920, 1080, 60, false, false},
+      DisplayMode{1920, 1080, 50, false, false},
+  };
+
+  const auto auto_sel = SelectDisplayMode(modes, "auto");
+  expect(auto_sel.use_native && !auto_sel.is_fallback, "auto keeps native mode");
+
+  const auto match = SelectDisplayMode(modes, "1920x1080@50");
+  expect(!match.use_native && !match.is_fallback, "exact mode is selected");
+  expect(match.chosen.width == 1920 && match.chosen.refresh_rate == 50,
+         "selected mode has the requested dimensions");
+
+  const auto fallback = SelectDisplayMode(modes, "1280x720@60");
+  expect(fallback.use_native && fallback.is_fallback,
+         "unavailable mode falls back to native and flags it");
+
+  expect(ndi_receiver::FormatDisplayMode(DisplayMode{1920, 1080, 60, false, false}) ==
+             "1920x1080@60",
+         "FormatDisplayMode renders WxH@Hz");
+}
+
 }  // namespace
 
 int main() {
@@ -97,6 +130,7 @@ int main() {
     test_status_writer();
     test_json_escape();
     test_cli_validation();
+    test_display_mode();
   } catch (const std::exception& error) {
     std::cerr << "receiver-tests failed: " << error.what() << "\n";
     return 1;
