@@ -89,6 +89,26 @@ void test_cli_validation() {
     }
     expect(threw, "cli should reject reconnect ranges where initial > max");
   }
+
+  {
+    const char* argv[] = {"ndi-receiver", "run", "--source", "Studio", "--status-file",
+                          "/tmp/status.json", "--output-mode", "1920x1080@60"};
+    const auto options = ndi_receiver::parse_cli(static_cast<int>(std::size(argv)),
+                                                 const_cast<char**>(argv));
+    expect(options.run.output_mode == "1920x1080@60", "cli should parse a valid output mode");
+  }
+
+  {
+    const char* argv[] = {"ndi-receiver", "run", "--source", "Studio", "--status-file",
+                          "/tmp/status.json", "--output-mode", "1080p"};
+    bool threw = false;
+    try {
+      (void)ndi_receiver::parse_cli(static_cast<int>(std::size(argv)), const_cast<char**>(argv));
+    } catch (const std::invalid_argument&) {
+      threw = true;
+    }
+    expect(threw, "cli should reject a malformed output mode");
+  }
 }
 
 void test_display_mode() {
