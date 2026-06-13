@@ -18,6 +18,9 @@ export function createInitialStatus(config: AppConfig): ReceiverRuntimeStatus {
     startedAt: null,
     uptimeSeconds: null,
     lastError: null,
+    outputMode: null,
+    outputModeFallback: false,
+    availableModes: [],
     lastExitCode: null,
     lastExitSignal: null,
     restartCount: 0,
@@ -48,6 +51,9 @@ export function mergeStatusFile(
     startedAt: snapshot.startedAt,
     uptimeSeconds: snapshot.uptimeSeconds,
     lastError: snapshot.lastError,
+    outputMode: snapshot.outputMode ?? null,
+    outputModeFallback: snapshot.outputModeFallback ?? false,
+    availableModes: snapshot.availableModes ?? current.availableModes,
     statusFileUpdatedAt: snapshot.updatedAt,
     updatedAt: new Date().toISOString()
   };
