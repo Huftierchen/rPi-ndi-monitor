@@ -14,6 +14,7 @@ import type {
   AppConfig,
   BandwidthMode,
   ColorFormat,
+  DisplayMode,
   LogLevel,
   ScaleMode,
 } from '../api/types.ts';
@@ -26,6 +27,7 @@ import {
   LOG_LEVELS,
   SCALE_MODE_LABELS,
   SCALE_MODES,
+  formatDisplayModeLabel,
 } from '../api/options.ts';
 
 type Mode = 'quick' | 'advanced';
@@ -534,6 +536,36 @@ export function Settings() {
                 mutate((d) => ({ ...d, display: { ...d.display, fullscreen: v } }), true)
               }
             />
+            <Field label="HDMI OUTPUT RESOLUTION" hint="DRM MODESET">
+              <select
+                value={draft.display.outputMode}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  mutate((d) => ({ ...d, display: { ...d.display, outputMode: v } }), true);
+                }}
+              >
+                <option value="auto">Auto (native)</option>
+                {(status?.availableModes ?? []).map((m: DisplayMode) => (
+                  <option key={m.id} value={m.id}>
+                    {formatDisplayModeLabel(m)}
+                  </option>
+                ))}
+                {draft.display.outputMode !== 'auto' &&
+                  !(status?.availableModes ?? []).some((m) => m.id === draft.display.outputMode) && (
+                    <option value={draft.display.outputMode}>
+                      {draft.display.outputMode} (not currently detected)
+                    </option>
+                  )}
+              </select>
+            </Field>
+            {(status?.availableModes ?? []).length === 0 && (
+              <p className="note">Start the receiver once to detect available display modes.</p>
+            )}
+            {status?.outputModeFallback && (
+              <p className="note" style={{ color: 'var(--red)' }}>
+                Requested mode unavailable — receiver is using the native display mode.
+              </p>
+            )}
             <Field label="HDMI OUTPUT HINT" hint="OPTIONAL">
               <input
                 type="text"
