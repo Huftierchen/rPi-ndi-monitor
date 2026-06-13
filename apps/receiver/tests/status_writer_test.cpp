@@ -37,6 +37,12 @@ void test_status_writer() {
   snapshot.started_at = "2026-01-01T00:00:00.000Z";
   snapshot.uptime_seconds = 42;
   snapshot.updated_at = "2026-01-01T00:00:42.000Z";
+  snapshot.output_mode = "1920x1080@60";
+  snapshot.output_mode_fallback = false;
+  snapshot.available_modes = {
+      ndi_receiver::DisplayMode{3840, 2160, 60, true, true},
+      ndi_receiver::DisplayMode{1920, 1080, 60, false, false},
+  };
   writer.Write(snapshot);
 
   std::ifstream input(status_file);
@@ -47,6 +53,14 @@ void test_status_writer() {
          "status writer should persist source name");
   expect(content.find("\"uptimeSeconds\": 42") != std::string::npos,
          "status writer should persist uptime");
+  expect(content.find("\"outputMode\": \"1920x1080@60\"") != std::string::npos,
+         "status writer should persist output mode");
+  expect(content.find("\"outputModeFallback\": false") != std::string::npos,
+         "status writer should persist fallback flag");
+  expect(content.find("\"id\": \"3840x2160@60\"") != std::string::npos,
+         "status writer should persist available modes array");
+  expect(content.find("\"isNative\": true") != std::string::npos,
+         "available modes should carry the native flag");
 }
 
 void test_json_escape() {

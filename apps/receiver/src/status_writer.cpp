@@ -17,6 +17,23 @@ std::string maybe_string(const std::string& value) {
   return "\"" + json_escape(value) + "\"";
 }
 
+std::string serialize_available_modes(const std::vector<DisplayMode>& modes) {
+  std::string out = "[";
+  for (size_t i = 0; i < modes.size(); ++i) {
+    const DisplayMode& m = modes[i];
+    out += "{\"id\": \"" + FormatDisplayMode(m) + "\", \"width\": " + std::to_string(m.width) +
+           ", \"height\": " + std::to_string(m.height) +
+           ", \"refreshRate\": " + std::to_string(m.refresh_rate) +
+           ", \"isNative\": " + (m.is_native ? "true" : "false") +
+           ", \"isCurrent\": " + (m.is_current ? "true" : "false") + "}";
+    if (i + 1 < modes.size()) {
+      out += ", ";
+    }
+  }
+  out += "]";
+  return out;
+}
+
 std::string serialize_snapshot_body(const ReceiverStatusSnapshot& snapshot) {
   return "\"lifecycle\": \"" + json_escape(snapshot.lifecycle) + "\",\n" +
          "  \"connectionState\": \"" + json_escape(snapshot.connection_state) + "\",\n" +
@@ -33,6 +50,10 @@ std::string serialize_snapshot_body(const ReceiverStatusSnapshot& snapshot) {
          "  \"startedAt\": " + maybe_string(snapshot.started_at) + ",\n" +
          "  \"uptimeSeconds\": " + std::to_string(snapshot.uptime_seconds) + ",\n" +
          "  \"lastError\": " + maybe_string(snapshot.last_error) + ",\n" +
+         "  \"outputMode\": \"" + json_escape(snapshot.output_mode) + "\",\n" +
+         "  \"outputModeFallback\": " +
+         std::string(snapshot.output_mode_fallback ? "true" : "false") + ",\n" +
+         "  \"availableModes\": " + serialize_available_modes(snapshot.available_modes) + ",\n" +
          "  \"updatedAt\": \"" + json_escape(snapshot.updated_at) + "\"\n";
 }
 

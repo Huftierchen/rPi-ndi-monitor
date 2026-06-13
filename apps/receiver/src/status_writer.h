@@ -1,6 +1,9 @@
 #pragma once
 
 #include <string>
+#include <vector>
+
+#include "display_mode.h"
 
 namespace ndi_receiver {
 
@@ -20,6 +23,9 @@ struct ReceiverStatusSnapshot {
   std::string started_at;
   int uptime_seconds = 0;
   std::string last_error;
+  std::string output_mode = "auto";
+  bool output_mode_fallback = false;
+  std::vector<DisplayMode> available_modes;
   std::string updated_at;
 };
 
