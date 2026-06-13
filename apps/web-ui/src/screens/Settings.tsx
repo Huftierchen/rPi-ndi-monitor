@@ -198,6 +198,42 @@ export function Settings() {
     </select>
   );
 
+  const resolutionSelect = (
+    <select
+      value={draft.display.outputMode}
+      onChange={(e) => {
+        const v = e.target.value;
+        mutate((d) => ({ ...d, display: { ...d.display, outputMode: v } }), true);
+      }}
+    >
+      <option value="auto">Auto (native)</option>
+      {(status?.availableModes ?? []).map((m: DisplayMode) => (
+        <option key={m.id} value={m.id}>
+          {formatDisplayModeLabel(m)}
+        </option>
+      ))}
+      {draft.display.outputMode !== 'auto' &&
+        !(status?.availableModes ?? []).some((m) => m.id === draft.display.outputMode) && (
+          <option value={draft.display.outputMode}>
+            {draft.display.outputMode} (not currently detected)
+          </option>
+        )}
+    </select>
+  );
+
+  const resolutionNotes = (
+    <>
+      {(status?.availableModes ?? []).length === 0 && (
+        <p className="note">Start the receiver once to detect available display modes.</p>
+      )}
+      {status?.outputModeFallback && (
+        <p className="note" style={{ color: 'var(--red)' }}>
+          Requested mode unavailable — receiver is using the native display mode.
+        </p>
+      )}
+    </>
+  );
+
   const saveIndicator =
     (
       <div
@@ -239,7 +275,7 @@ export function Settings() {
       <SectionLabel right="/ETC/NDI-RECEIVER/CONFIG.YAML">CONFIGURATION</SectionLabel>
       <SegmentSwitch<Mode>
         options={[
-          { value: 'quick', label: 'QUICK · 5' },
+          { value: 'quick', label: 'QUICK · 6' },
           { value: 'advanced', label: 'ADVANCED · ALL' },
         ]}
         value={mode}
@@ -257,6 +293,10 @@ export function Settings() {
             <Field label="SCALE MODE" hint="HDMI FRAMING">
               {scaleSelect}
             </Field>
+            <Field label="HDMI OUTPUT RESOLUTION" hint="DRM MODESET">
+              {resolutionSelect}
+            </Field>
+            {resolutionNotes}
             <Field label="RECEIVER COLOR FORMAT" hint="CPU IMPACT · HIGH">
               {colorSelect}
             </Field>
@@ -537,35 +577,9 @@ export function Settings() {
               }
             />
             <Field label="HDMI OUTPUT RESOLUTION" hint="DRM MODESET">
-              <select
-                value={draft.display.outputMode}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  mutate((d) => ({ ...d, display: { ...d.display, outputMode: v } }), true);
-                }}
-              >
-                <option value="auto">Auto (native)</option>
-                {(status?.availableModes ?? []).map((m: DisplayMode) => (
-                  <option key={m.id} value={m.id}>
-                    {formatDisplayModeLabel(m)}
-                  </option>
-                ))}
-                {draft.display.outputMode !== 'auto' &&
-                  !(status?.availableModes ?? []).some((m) => m.id === draft.display.outputMode) && (
-                    <option value={draft.display.outputMode}>
-                      {draft.display.outputMode} (not currently detected)
-                    </option>
-                  )}
-              </select>
+              {resolutionSelect}
             </Field>
-            {(status?.availableModes ?? []).length === 0 && (
-              <p className="note">Start the receiver once to detect available display modes.</p>
-            )}
-            {status?.outputModeFallback && (
-              <p className="note" style={{ color: 'var(--red)' }}>
-                Requested mode unavailable — receiver is using the native display mode.
-              </p>
-            )}
+            {resolutionNotes}
             <Field label="HDMI OUTPUT HINT" hint="OPTIONAL">
               <input
                 type="text"
