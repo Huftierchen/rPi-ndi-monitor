@@ -166,6 +166,24 @@ After saving through the Web UI:
 - increase `receiver.reconnect.initialDelayMs`
 - increase `receiver.reconnect.maxDelayMs`
 
+## HDMI output resolution
+
+By default the receiver uses the display's native resolution (`display.outputMode: auto`)
+and scales the NDI frame to fit. To force a specific HDMI output mode (e.g. drive a
+4K-capable display at 1080p to reduce GPU load):
+
+1. Open the web UI → **Settings → Advanced → DEVICE & DISPLAY**.
+2. Pick a mode from **HDMI OUTPUT RESOLUTION**. The list is populated from the modes the
+   connected display advertises; it appears after the receiver has run at least once.
+3. Saving restarts the receiver and applies the new mode via a DRM modeset.
+
+If the configured mode is unavailable (e.g. a different monitor was attached), the
+receiver falls back to the native mode, logs a warning, and the UI shows
+"Requested mode unavailable". The appliance never goes dark.
+
+The mode list is detected once per receiver start. To re-detect after swapping the
+display, restart the receiver (any settings change does this).
+
 ## Reboot After First Install
 
 A reboot is recommended after first install because:
