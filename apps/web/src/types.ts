@@ -40,6 +40,7 @@ export interface AppConfig {
   display: {
     fullscreen: boolean;
     hdmiOutputHint: string;
+    outputMode: string;
   };
   device: {
     name: string;
