@@ -123,6 +123,16 @@ For Pi runtime performance, the current receiver also includes:
 
 That structure allows real implementation without distorting the interface just to support local non-SDK testing.
 
+### HDMI output resolution
+
+The `--output-mode` option (`auto` or `<W>x<H>@<Hz>`) controls the HDMI output mode:
+
+- `auto` keeps the display's native mode via `SDL_WINDOW_FULLSCREEN_DESKTOP` (the NDI frame is scaled to fit).
+- a concrete mode triggers a real DRM modeset via `SDL_WINDOW_FULLSCREEN` + `SDL_SetWindowDisplayMode`.
+- a pure `SelectDisplayMode()` function resolves the requested spec against the enumerated modes; an unavailable mode falls back to native and is flagged so the operator sees it.
+
+**Decision — modes are reported by the running receiver, not discovered separately.** Available modes are an EDID property of the connected display, so the receiver enumerates them once at startup (while it already holds the DRM device) and writes them to the status snapshot (`availableModes`), alongside the applied mode (`outputMode`) and `outputModeFallback`. This avoids a second `discover-modes` subcommand that would need its own DRM access and could conflict with the active receiver's DRM master. The Web UI offers the reported modes; a "rescan" is simply a receiver restart (which any settings change already performs).
+
 ## HDMI Appliance Behavior
 
 The Pi should feel like a device, not like a Linux login host. The install path therefore also:
