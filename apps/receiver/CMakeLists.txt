@@ -59,6 +59,7 @@ endif()
 set(RECEIVER_SOURCES
   src/main.cpp
   src/cli.cpp
+  src/display_mode.cpp
   src/logger.cpp
   src/status_writer.cpp
   src/receiver_app.cpp
@@ -89,6 +90,7 @@ enable_testing()
 add_executable(receiver-tests
   tests/status_writer_test.cpp
   src/cli.cpp
+  src/display_mode.cpp
   src/logger.cpp
   src/status_writer.cpp
 )

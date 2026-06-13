@@ -3,6 +3,8 @@
 #include <stdexcept>
 #include <string>
 
+#include "display_mode.h"
+
 namespace ndi_receiver {
 namespace {
 
@@ -114,6 +116,12 @@ CliOptions parse_cli(int argc, char** argv) {
         options.run.fullscreen = parse_enabled_flag(require_value(argc, argv, index));
       } else if (is_flag(argument, "--hdmi-output-hint")) {
         options.run.hdmi_output_hint = require_value(argc, argv, index);
+      } else if (is_flag(argument, "--output-mode")) {
+        const std::string value = require_value(argc, argv, index);
+        if (!IsValidOutputModeSpec(value)) {
+          throw std::invalid_argument("Unsupported output mode (use auto or WxH@Hz): " + value);
+        }
+        options.run.output_mode = value;
       } else if (is_flag(argument, "--device-name")) {
         options.run.device_name = require_value(argc, argv, index);
       } else if (is_flag(argument, "--reconnect-enabled")) {
@@ -192,6 +200,7 @@ Run options:
   --json-logs
   --fullscreen enabled|disabled
   --hdmi-output-hint VALUE
+  --output-mode auto|WxH@Hz
   --device-name VALUE
   --reconnect-enabled true|false
   --reconnect-initial-delay-ms VALUE

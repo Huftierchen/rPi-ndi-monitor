@@ -43,6 +43,7 @@ No display manager, no desktop, no X11. Just NDI in, HDMI out.
 - **Live status + logs over SSE** — status, discovery, and log entries stream to the browser in real time with auto-reconnect
 - **Auto-start + reconnect** — configure it once, it recovers on its own
 - **Performance controls** — pixel format, FPS cap, low-latency mode, bandwidth mode
+- **Selectable HDMI output resolution** — pick a real output mode (e.g. drive a 4K display at `1920×1080@60`) from the Web UI; a true DRM modeset, with automatic fallback to native if the mode isn't available
 - **Headless HDMI** — KMS/DRM, no desktop environment required
 
 ---
@@ -116,6 +117,20 @@ Pi 5 handles 1080p60 comfortably. On Pi 4, these settings give the best results:
 |---|---|---|
 | `rgba`, no low-latency | ~168% | 226 |
 | `fastest` + low-latency | ~121% | 2 |
+
+---
+
+## HDMI output resolution
+
+By default the receiver uses the display's native resolution and scales the NDI frame to fit. You can force a specific HDMI output mode — handy to drive a 4K-capable display at 1080p and cut GPU load.
+
+1. In **Settings**, open **HDMI OUTPUT RESOLUTION** (available in both quick and advanced views).
+2. The dropdown lists the modes the connected display actually advertises — the list appears after the receiver has run at least once (start it once with `Auto` first).
+3. Pick a mode (e.g. `1920×1080 · 60 Hz`). Saving restarts the receiver and applies the mode via a real DRM modeset.
+
+The Dashboard's **Output** stat shows the resolution/refresh actually being driven. If a configured mode is unavailable (e.g. a different monitor was attached), the receiver falls back to the native mode, flags it in the UI, and keeps running — the appliance never goes dark. The mode list is re-detected on every receiver start.
+
+Config field: `display.outputMode` — `auto` or `<W>x<H>@<Hz>` (e.g. `1920x1080@60`). See [docs/OPERATIONS.md](docs/OPERATIONS.md#hdmi-output-resolution).
 
 ---
 

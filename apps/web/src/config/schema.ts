@@ -35,7 +35,11 @@ const loggingConfigSchema = z.object({
 
 const displayConfigSchema = z.object({
   fullscreen: z.boolean(),
-  hdmiOutputHint: z.string().min(1)
+  hdmiOutputHint: z.string().min(1),
+  outputMode: z
+    .string()
+    .regex(/^(auto|\d{3,5}x\d{3,5}@\d{1,3})$/, "outputMode must be 'auto' or '<W>x<H>@<Hz>'")
+    .default("auto")
 }).strict();
 
 const deviceConfigSchema = z.object({

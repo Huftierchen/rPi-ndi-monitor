@@ -4,7 +4,7 @@
 // adding a new literal to any of these union types in `./types.ts` without
 // updating the corresponding record here will produce a TypeScript error.
 
-import type { BandwidthMode, ColorFormat, LogLevel, ScaleMode } from './types.ts';
+import type { BandwidthMode, ColorFormat, DisplayMode, LogLevel, ScaleMode } from './types.ts';
 
 export const SCALE_MODE_LABELS = {
   contain: 'contain — keep aspect, may letterbox',
@@ -35,3 +35,8 @@ export const SCALE_MODES = Object.keys(SCALE_MODE_LABELS) as ScaleMode[];
 export const COLOR_FORMATS = Object.keys(COLOR_FORMAT_LABELS) as ColorFormat[];
 export const BANDWIDTH_MODES = Object.keys(BANDWIDTH_MODE_LABELS) as BandwidthMode[];
 export const LOG_LEVELS = Object.keys(LOG_LEVEL_LABELS) as LogLevel[];
+
+export function formatDisplayModeLabel(mode: DisplayMode): string {
+  const native = mode.isNative ? ' · native' : '';
+  return `${mode.width}×${mode.height} · ${mode.refreshRate} Hz${native}`;
+}

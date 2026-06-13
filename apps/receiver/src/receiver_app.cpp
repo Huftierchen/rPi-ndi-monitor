@@ -58,6 +58,15 @@ int ReceiverApp::Run() {
     return static_cast<int>(ExitCode::kRendererFailure);
   }
 
+  status_.output_mode = renderer->AppliedMode();
+  status_.output_mode_fallback = renderer->ModeFallback();
+  status_.available_modes = renderer->AvailableModes();
+  if (status_.output_mode_fallback) {
+    logger_.Warn(LogCategory::kRender,
+                 "Requested output mode '" + options_.output_mode +
+                     "' unavailable; using native display mode");
+  }
+
   logger_.Info(LogCategory::kStartup, "Receiver starting for source '" + options_.source_name + "'");
   logger_.EmitEvent("starting", "", options_.source_name);
   status_.started_at = now_iso8601();

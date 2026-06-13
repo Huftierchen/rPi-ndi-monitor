@@ -9,6 +9,17 @@ export function StatusBlock() {
 
   const dropped = status?.droppedVideoFrames ?? 0;
 
+  // The HDMI mode actually being driven: a concrete configured mode wins,
+  // otherwise fall back to the display's current (native) mode reported by the
+  // receiver. "1920x1080@60" -> "1920×1080 · 60 Hz".
+  const drivenModeId =
+    status?.outputMode && status.outputMode !== "auto"
+      ? status.outputMode
+      : ((status?.availableModes ?? []).find((m) => m.isCurrent)?.id ?? null);
+  const outputValue = drivenModeId
+    ? `${drivenModeId.replace("x", "×").replace("@", " · ")} Hz`
+    : "—";
+
   const audioValue = !status?.audioEnabled
     ? "disabled"
     : status?.audioActive
@@ -27,6 +38,7 @@ export function StatusBlock() {
         <div className="stat-grid">
           <Stat label="FPS" value={formatFps(status?.fps ?? null)} mono color="green" />
           <Stat label="Resolution" value={status?.resolution ?? "—"} mono />
+          <Stat label="Output" value={outputValue} mono color="cyan" />
           <Stat
             label="Dropped"
             value={dropped}

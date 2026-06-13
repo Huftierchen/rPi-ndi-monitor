@@ -33,7 +33,8 @@ const baseConfig: AppConfig = {
   },
   display: {
     fullscreen: true,
-    hdmiOutputHint: "auto"
+    hdmiOutputHint: "auto",
+    outputMode: "auto"
   },
   device: {
     name: "ndi-monitor-pi5"
@@ -112,4 +113,29 @@ test("appConfigPatchSchema accepts nested partial updates", () => {
   });
 
   assert.equal(patch.receiver?.reconnect?.maxDelayMs, 9000);
+});
+
+test("validateConfig accepts a concrete output mode", () => {
+  const parsed = validateConfig({
+    ...baseConfig,
+    display: { ...baseConfig.display, outputMode: "1920x1080@60" }
+  });
+  assert.equal(parsed.display.outputMode, "1920x1080@60");
+});
+
+test("validateConfig rejects a malformed output mode", () => {
+  assert.throws(() => {
+    validateConfig({
+      ...baseConfig,
+      display: { ...baseConfig.display, outputMode: "1080p" }
+    });
+  });
+});
+
+test("validateConfig defaults outputMode to auto when omitted", () => {
+  const parsed = validateConfig({
+    ...baseConfig,
+    display: { fullscreen: true, hdmiOutputHint: "auto" }
+  });
+  assert.equal(parsed.display.outputMode, "auto");
 });

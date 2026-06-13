@@ -34,6 +34,7 @@ struct RunOptions {
   bool json_logs = false;
   bool fullscreen = true;
   std::string hdmi_output_hint = "auto";
+  std::string output_mode = "auto";
   std::string device_name = "ndi-monitor-pi5";
   bool reconnect_enabled = true;
   int reconnect_initial_delay_ms = 1000;

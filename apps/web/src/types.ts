@@ -40,6 +40,7 @@ export interface AppConfig {
   display: {
     fullscreen: boolean;
     hdmiOutputHint: string;
+    outputMode: string;
   };
   device: {
     name: string;
@@ -76,6 +77,15 @@ export type ReceiverConnectionState =
   | "reconnecting"
   | "fatal";
 
+export interface DisplayMode {
+  id: string;
+  width: number;
+  height: number;
+  refreshRate: number;
+  isNative: boolean;
+  isCurrent: boolean;
+}
+
 export interface ReceiverRuntimeStatus {
   pid: number | null;
   lifecycle: ReceiverLifecycleState;
@@ -93,6 +103,9 @@ export interface ReceiverRuntimeStatus {
   startedAt: string | null;
   uptimeSeconds: number | null;
   lastError: string | null;
+  outputMode: string | null;
+  outputModeFallback: boolean;
+  availableModes: DisplayMode[];
   lastExitCode: number | null;
   lastExitSignal: NodeJS.Signals | null;
   restartCount: number;
@@ -117,6 +130,9 @@ export interface ReceiverStatusFile {
   startedAt: string | null;
   uptimeSeconds: number | null;
   lastError: string | null;
+  outputMode: string | null;
+  outputModeFallback: boolean;
+  availableModes: DisplayMode[];
   updatedAt: string;
 }
 

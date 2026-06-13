@@ -30,7 +30,8 @@ const config: AppConfig = {
   },
   display: {
     fullscreen: true,
-    hdmiOutputHint: "auto"
+    hdmiOutputHint: "auto",
+    outputMode: "auto"
   },
   device: {
     name: "pi5"
@@ -55,6 +56,11 @@ test("mergeStatusFile overlays runtime fields from the receiver", () => {
     startedAt: "2026-04-07T18:00:00.000Z",
     uptimeSeconds: 12,
     lastError: null,
+    outputMode: "1920x1080@60",
+    outputModeFallback: false,
+    availableModes: [
+      { id: "1920x1080@60", width: 1920, height: 1080, refreshRate: 60, isNative: true, isCurrent: true }
+    ],
     updatedAt: "2026-04-07T18:00:12.000Z"
   };
 
@@ -63,4 +69,15 @@ test("mergeStatusFile overlays runtime fields from the receiver", () => {
   assert.equal(merged.resolution, "1920x1080");
   assert.equal(merged.videoActive, true);
   assert.equal(merged.droppedVideoFrames, 2);
+  assert.equal(merged.outputMode, "1920x1080@60");
+  assert.equal(merged.outputModeFallback, false);
+  assert.equal(merged.availableModes.length, 1);
+  assert.equal(merged.availableModes[0]?.refreshRate, 60);
+});
+
+test("createInitialStatus defaults the mode fields", () => {
+  const initial = createInitialStatus(config);
+  assert.equal(initial.outputMode, null);
+  assert.equal(initial.outputModeFallback, false);
+  assert.deepEqual(initial.availableModes, []);
 });

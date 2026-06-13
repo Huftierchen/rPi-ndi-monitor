@@ -26,6 +26,7 @@ logging:
 display:
   fullscreen: true
   hdmiOutputHint: auto
+  outputMode: auto
 
 device:
   name: ndi-monitor-pi5

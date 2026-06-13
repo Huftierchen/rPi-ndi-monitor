@@ -154,6 +154,13 @@ The system user `ndi-monitor` is created with these groups:
 - `audio`
 - `render`
 
+### Output resolution
+
+- `display.outputMode`: `auto` (use native display mode) or `<W>x<H>@<Hz>` such as
+  `1920x1080@60`. A concrete value performs a real DRM modeset via SDL2 KMSDRM; an
+  unavailable value falls back to the native mode. Available modes are reported by the
+  running receiver and shown in the web UI after the first start.
+
 ## Stub / Demo Build without the SDK
 
 For development without the real NDI SDK:

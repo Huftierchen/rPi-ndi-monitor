@@ -362,6 +362,8 @@ export class ReceiverSupervisor {
       config.display.fullscreen ? "enabled" : "disabled",
       "--hdmi-output-hint",
       config.display.hdmiOutputHint,
+      "--output-mode",
+      config.display.outputMode,
       "--device-name",
       config.device.name,
       "--reconnect-enabled",
