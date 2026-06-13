@@ -65,14 +65,65 @@ class SdlRenderer final : public IRenderer {
       return false;
     }
 
-    const Uint32 flags = options.fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0;
-    window_ = SDL_CreateWindow("ndi-receiver", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 1280,
-                               720, flags);
+    // Enumerate the connected display's modes for the web UI to choose from.
+    // NOTE: Verify on real Pi 5 hardware that SDL/KMSDRM enumerates every CEA
+    // mode advertised by the display via the DRM connector modes. This cannot be
+    // validated without an attached HDMI display.
+    SDL_DisplayMode current_mode;
+    const bool have_current = SDL_GetCurrentDisplayMode(0, &current_mode) == 0;
+    const int mode_count = SDL_GetNumDisplayModes(0);
+    for (int i = 0; i < mode_count; ++i) {
+      SDL_DisplayMode m;
+      if (SDL_GetDisplayMode(0, i, &m) != 0) {
+        continue;
+      }
+      DisplayMode entry;
+      entry.width = m.w;
+      entry.height = m.h;
+      entry.refresh_rate = m.refresh_rate;
+      entry.is_native = (i == 0);  // SDL lists modes largest-first; index 0 is native.
+      entry.is_current =
+          have_current && m.w == current_mode.w && m.h == current_mode.h &&
+          m.refresh_rate == current_mode.refresh_rate;
+      available_modes_.push_back(entry);
+    }
+
+    const ModeSelection selection = SelectDisplayMode(available_modes_, options.output_mode);
+    mode_fallback_ = selection.is_fallback;
+
+    Uint32 flags = 0;
+    int window_width = 1280;
+    int window_height = 720;
+    if (options.fullscreen) {
+      flags = selection.use_native ? SDL_WINDOW_FULLSCREEN_DESKTOP : SDL_WINDOW_FULLSCREEN;
+    }
+    if (!selection.use_native) {
+      window_width = selection.chosen.width;
+      window_height = selection.chosen.height;
+      applied_mode_ = FormatDisplayMode(selection.chosen);
+    } else {
+      applied_mode_ = "auto";
+    }
+
+    window_ = SDL_CreateWindow("ndi-receiver", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
+                               window_width, window_height, flags);
     if (window_ == nullptr) {
       if (error_message != nullptr) {
         *error_message = SDL_GetError();
       }
       return false;
+    }
+
+    if (!selection.use_native) {
+      SDL_DisplayMode target;
+      SDL_zero(target);
+      target.w = selection.chosen.width;
+      target.h = selection.chosen.height;
+      target.refresh_rate = selection.chosen.refresh_rate;
+      SDL_DisplayMode closest;
+      if (SDL_GetClosestDisplayMode(0, &target, &closest) != nullptr) {
+        SDL_SetWindowDisplayMode(window_, &closest);
+      }
     }
 
     renderer_ = SDL_CreateRenderer(window_, -1, SDL_RENDERER_ACCELERATED);
@@ -143,6 +194,10 @@ class SdlRenderer final : public IRenderer {
     SDL_Quit();
   }
 
+  std::vector<DisplayMode> AvailableModes() const override { return available_modes_; }
+  std::string AppliedMode() const override { return applied_mode_; }
+  bool ModeFallback() const override { return mode_fallback_; }
+
  private:
   SDL_Window* window_ = nullptr;
   SDL_Renderer* renderer_ = nullptr;
@@ -150,6 +205,9 @@ class SdlRenderer final : public IRenderer {
   int frame_width_ = 0;
   int frame_height_ = 0;
   Uint32 texture_format_ = SDL_PIXELFORMAT_UNKNOWN;
+  std::vector<DisplayMode> available_modes_;
+  std::string applied_mode_ = "auto";
+  bool mode_fallback_ = false;
 };
 
 #else
@@ -163,6 +221,10 @@ class HeadlessRenderer final : public IRenderer {
   }
 
   void Shutdown() override {}
+
+  std::vector<DisplayMode> AvailableModes() const override { return {}; }
+  std::string AppliedMode() const override { return "auto"; }
+  bool ModeFallback() const override { return false; }
 };
 
 #endif
