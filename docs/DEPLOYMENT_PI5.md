@@ -3,7 +3,7 @@
 ## Target System
 
 - Raspberry Pi 5 as the intended production target
-- Raspberry Pi OS Lite or another Debian/Pi-OS compatible ARM64 system
+- Raspberry Pi OS Lite (Bookworm or Trixie) or another Debian/Pi-OS compatible ARM64 system
 - HDMI display connected directly
 - no desktop, no X11, no Wayland
 - LAN network access
@@ -22,7 +22,7 @@ Note: the current verified runtime box in this repository is a Raspberry Pi 4, b
 - creates `/etc/ndi-receiver`, `/var/lib/ndi-receiver`, `/var/log/ndi-receiver`, and `/run/ndi-monitor`
 - installs `ndi-web.service` and `ndi-standby.service`
 - disables `getty@tty1.service`
-- removes `console=tty1` from `/boot/cmdline.txt`
+- removes `console=tty1` from the kernel cmdline (auto-detected: `/boot/firmware/cmdline.txt` on Bookworm/Trixie, legacy `/boot/cmdline.txt` as fallback; override with `BOOT_CMDLINE=...`)
 - writes the HDMI standby screen to `tty1`
 
 Important:
@@ -45,6 +45,15 @@ sudo apt-get install -y gh git-lfs
 ```
 
 Node.js 22+ is required. The project scripts activate `pnpm` through Corepack.
+
+Raspberry Pi OS Trixie may already ship Node 22 in apt — check with `apt-cache policy nodejs`. If the candidate is older than 22 (Debian 13 base ships Node 20), install it from NodeSource, which supports Trixie and bundles Corepack:
+
+```bash
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+sudo apt-get install -y nodejs
+sudo corepack enable
+node --version   # expect v22.x
+```
 
 ## NDI HX Codecs
 
@@ -91,8 +100,10 @@ Expected on ARM64:
 git clone https://github.com/Huftierchen/rPi-ndi-monitor.git /home/pi/ndi-monitor
 cd /home/pi/ndi-monitor
 
-export NDI_SDK_DIR=/opt/ndi_sdk
-sudo ./install.sh
+# Pass NDI_SDK_DIR through sudo explicitly — sudo resets the environment by
+# default, so a plain `export` before `sudo ./install.sh` would be dropped and
+# you would silently get a stub build without real NDI receive.
+sudo env NDI_SDK_DIR=/opt/ndi_sdk ./install.sh
 sudo reboot
 ```
 

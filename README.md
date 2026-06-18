@@ -57,12 +57,18 @@ sudo apt-get install -y \
   git rsync curl ca-certificates build-essential cmake pkg-config \
   libsdl2-dev libasound2-dev ripgrep avahi-daemon qrencode
 
+# Node.js 22+ (skip if `apt-cache policy nodejs` already offers >= 22 on Trixie)
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+sudo apt-get install -y nodejs && sudo corepack enable
+
+# Install the NDI SDK to /opt/ndi_sdk first — see the "NDI SDK" section below.
+
 # Clone and install
 git clone https://github.com/Huftierchen/rPi-ndi-monitor.git /home/pi/ndi-monitor
 cd /home/pi/ndi-monitor
 
-export NDI_SDK_DIR=/opt/ndi_sdk   # path to your NDI SDK install
-sudo ./install.sh
+# Pass the SDK path through sudo (it resets the environment by default).
+sudo env NDI_SDK_DIR=/opt/ndi_sdk ./install.sh
 sudo reboot
 ```
 

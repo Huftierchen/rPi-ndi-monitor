@@ -5,8 +5,18 @@ PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INSTALL_ROOT="${INSTALL_ROOT:-/opt/ndi-monitor}"
 SYSTEM_USER="${SYSTEM_USER:-ndi-monitor}"
 ALLOW_STUB_BACKEND="${ALLOW_STUB_BACKEND:-0}"
-BOOT_CMDLINE="${BOOT_CMDLINE:-/boot/cmdline.txt}"
 INSTALL_RUNTIME_CODECS="${INSTALL_RUNTIME_CODECS:-1}"
+
+# The kernel cmdline moved from /boot to /boot/firmware in Raspberry Pi OS
+# Bookworm/Trixie. Honour an explicit override, otherwise prefer the modern
+# path and fall back to the legacy one for older systems.
+if [[ -z "${BOOT_CMDLINE:-}" ]]; then
+  if [[ -f /boot/firmware/cmdline.txt ]]; then
+    BOOT_CMDLINE=/boot/firmware/cmdline.txt
+  else
+    BOOT_CMDLINE=/boot/cmdline.txt
+  fi
+fi
 
 require_command() {
   command -v "$1" >/dev/null 2>&1 || {
