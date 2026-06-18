@@ -138,9 +138,9 @@ The `--output-mode` option (`auto` or `<W>x<H>@<Hz>`) controls the HDMI output m
 The Pi should feel like a device, not like a Linux login host. The install path therefore also:
 
 - disables `getty@tty1.service`
-- removes `console=tty1` from `/boot/cmdline.txt`
-- adds `quiet loglevel=3 vt.global_cursor_default=0`
 - enables `ndi-standby.service`
+
+The kernel cmdline is left untouched on purpose: removing `console=tty1` drops the framebuffer console from HDMI on Bookworm/Trixie and blanks the standby screen. The standby script clears the screen and hides the cursor itself at runtime, so no boot-time cmdline edits are needed.
 
 Result:
 

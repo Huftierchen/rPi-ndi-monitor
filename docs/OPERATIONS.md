@@ -188,9 +188,11 @@ display, restart the receiver (any settings change does this).
 
 A reboot is recommended after first install because:
 
-- `/boot/cmdline.txt` is changed
-- `console=tty1` is removed
-- the HDMI boot console should become quiet and appliance-like
+- `getty@tty1.service` is disabled and `ndi-standby.service` takes over `tty1`
+- the appliance services (`ndi-web`, `ndi-standby`) should come up cleanly from boot
+
+The kernel cmdline is left untouched — `console=tty1` stays so the standby screen
+remains visible on HDMI.
 
 ## If the Receiver Runs but No Video Is Visible
 
@@ -216,14 +218,12 @@ Check:
 
 ```bash
 sudo systemctl status getty@tty1.service ndi-standby.service
-cat /boot/cmdline.txt
 ```
 
 Expected:
 
 - `getty@tty1.service`: `inactive`
 - `ndi-standby.service`: `active (exited)`
-- `/boot/cmdline.txt` without `console=tty1`
 
 ## Graceful Shutdown
 

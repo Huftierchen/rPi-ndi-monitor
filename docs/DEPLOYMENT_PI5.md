@@ -22,8 +22,9 @@ Note: the current verified runtime box in this repository is a Raspberry Pi 4, b
 - creates `/etc/ndi-receiver`, `/var/lib/ndi-receiver`, `/var/log/ndi-receiver`, and `/run/ndi-monitor`
 - installs `ndi-web.service` and `ndi-standby.service`
 - disables `getty@tty1.service`
-- removes `console=tty1` from the kernel cmdline (auto-detected: `/boot/firmware/cmdline.txt` on Bookworm/Trixie, legacy `/boot/cmdline.txt` as fallback; override with `BOOT_CMDLINE=...`)
 - writes the HDMI standby screen to `tty1`
+
+The kernel cmdline is left untouched. Removing `console=tty1` would drop the framebuffer console from HDMI on Bookworm/Trixie and blank the standby screen, so the install no longer edits `cmdline.txt`. The standby script hides the cursor and clears the screen at runtime instead.
 
 Important:
 

@@ -7,17 +7,6 @@ SYSTEM_USER="${SYSTEM_USER:-ndi-monitor}"
 ALLOW_STUB_BACKEND="${ALLOW_STUB_BACKEND:-0}"
 INSTALL_RUNTIME_CODECS="${INSTALL_RUNTIME_CODECS:-1}"
 
-# The kernel cmdline moved from /boot to /boot/firmware in Raspberry Pi OS
-# Bookworm/Trixie. Honour an explicit override, otherwise prefer the modern
-# path and fall back to the legacy one for older systems.
-if [[ -z "${BOOT_CMDLINE:-}" ]]; then
-  if [[ -f /boot/firmware/cmdline.txt ]]; then
-    BOOT_CMDLINE=/boot/firmware/cmdline.txt
-  else
-    BOOT_CMDLINE=/boot/cmdline.txt
-  fi
-fi
-
 require_command() {
   command -v "$1" >/dev/null 2>&1 || {
     echo "missing required command: $1" >&2
@@ -171,29 +160,11 @@ install_files() {
 }
 
 configure_appliance_console() {
-  if [[ -f "${BOOT_CMDLINE}" ]]; then
-    local current_cmdline new_cmdline token
-    current_cmdline="$(tr '\n' ' ' < "${BOOT_CMDLINE}")"
-    new_cmdline=""
-    for token in ${current_cmdline}; do
-      if [[ "${token}" == "console=tty1" ]]; then
-        continue
-      fi
-      new_cmdline+="${token} "
-    done
-
-    for token in quiet loglevel=3 vt.global_cursor_default=0; do
-      if [[ " ${new_cmdline} " != *" ${token} "* ]]; then
-        new_cmdline+="${token} "
-      fi
-    done
-
-    if [[ ! -f "${BOOT_CMDLINE}.ndi-monitor.bak" ]]; then
-      cp "${BOOT_CMDLINE}" "${BOOT_CMDLINE}.ndi-monitor.bak"
-    fi
-    printf '%s\n' "${new_cmdline% }" > "${BOOT_CMDLINE}"
-  fi
-
+  # The kernel cmdline is intentionally left untouched. Removing console=tty1
+  # drops the framebuffer console from HDMI on Raspberry Pi OS Bookworm/Trixie,
+  # which blanks the standby screen entirely. The standby script already clears
+  # the screen and hides the cursor at runtime (setterm --cursor off + \033c), so
+  # no boot-time cmdline edits are needed for the appliance look.
   systemctl disable --now getty@tty1.service >/dev/null 2>&1 || true
   systemctl enable ndi-standby.service >/dev/null
 }
